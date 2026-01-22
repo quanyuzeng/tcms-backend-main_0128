@@ -1,0 +1,66 @@
+{% extends "email/base.html" %}
+
+{% block title %}考试成绩通知{% endblock %}
+
+{% block content %}
+<h2>亲爱的 {{ user.real_name }}，</h2>
+
+{% if exam_result.is_passed %}
+<div class="success-box">
+    <h3>🎉 恭喜您通过考试！</h3>
+</div>
+{% else %}
+<div class="warning-box">
+    <h3>⚠️ 考试未通过</h3>
+</div>
+{% endif %}
+
+<div class="info-box">
+    <h3>成绩详情</h3>
+    <table>
+        <tr>
+            <th>考试名称</th>
+            <td>{{ exam_result.exam.title }}</td>
+        </tr>
+        <tr>
+            <th>您的得分</th>
+            <td><strong>{{ exam_result.score }} 分</strong></td>
+        </tr>
+        <tr>
+            <th>及格分数</th>
+            <td>{{ exam_result.exam.passing_score }} 分</td>
+        </tr>
+        <tr>
+            <th>考试结果</th>
+            <td>
+                {% if exam_result.is_passed %}
+                    <span style="color: #28a745; font-weight: bold;">通过</span>
+                {% else %}
+                    <span style="color: #dc3545; font-weight: bold;">未通过</span>
+                {% endif %}
+            </td>
+        </tr>
+        <tr>
+            <th>用时</th>
+            <td>{{ exam_result.duration }} 分钟</td>
+        </tr>
+        <tr>
+            <th>提交时间</th>
+            <td>{{ exam_result.submitted_at|date:"Y-m-d H:i:s" }}</td>
+        </tr>
+    </table>
+</div>
+
+{% if exam_result.is_passed %}
+<p>您已通过考试，系统会自动为您生成培训证书。您可以在"我的证书"中查看和下载。</p>
+{% else %}
+<p>很遗憾您未能通过本次考试，请继续努力。您可以：</p>
+<ul>
+    <li>复习相关课程内容</li>
+    <li>如有补考机会，请按时参加</li>
+    <li>向讲师或培训管理员咨询疑问</li>
+</ul>
+{% endif %}
+
+<p>TCMS培训管理系统</p>
+{% endblock %}

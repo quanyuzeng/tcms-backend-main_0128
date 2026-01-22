@@ -1,0 +1,86 @@
+{% extends "email/base.html" %}
+
+{% block title %}培训计划审批结果{% endblock %}
+
+{% block content %}
+<h2>亲爱的 {{ plan.created_by.real_name }}，</h2>
+
+{% if is_approved %}
+<div class="success-box">
+    <h3>🎉 您的培训计划已获批准！</h3>
+</div>
+{% else %}
+<div class="warning-box">
+    <h3>⚠️ 您的培训计划未获批准</h3>
+</div>
+{% endif %}
+
+<div class="info-box">
+    <h3>培训计划信息</h3>
+    <table>
+        <tr>
+            <th>计划名称</th>
+            <td>{{ plan.title }}</td>
+        </tr>
+        <tr>
+            <th>计划代码</th>
+            <td>{{ plan.code }}</td>
+        </tr>
+        <tr>
+            <th>计划类型</th>
+            <td>{{ plan.get_plan_type_display }}</td>
+        </tr>
+        {% if plan.target_department %}
+        <tr>
+            <th>目标部门</th>
+            <td>{{ plan.target_department.name }}</td>
+        </tr>
+        {% endif %}
+        {% if plan.target_position %}
+        <tr>
+            <th>目标岗位</th>
+            <td>{{ plan.target_position.name }}</td>
+        </tr>
+        {% endif %}
+        <tr>
+            <th>开始日期</th>
+            <td>{{ plan.start_date|date:"Y年m月d日" }}</td>
+        </tr>
+        <tr>
+            <th>结束日期</th>
+            <td>{{ plan.end_date|date:"Y年m月d日" }}</td>
+        </tr>
+        <tr>
+            <th>课程数量</th>
+            <td>{{ plan.total_courses }} 门</td>
+        </tr>
+        <tr>
+            <th>总课时</th>
+            <td>{{ plan.total_hours }} 小时</td>
+        </tr>
+        <tr>
+            <th>审批人</th>
+            <td>{{ approver.real_name }}</td>
+        </tr>
+        <tr>
+            <th>审批时间</th>
+            <td>{{ plan.approved_at|date:"Y年m月d日 H:i" }}</td>
+        </tr>
+    </table>
+</div>
+
+{% if comment %}
+<div class="info-box">
+    <h3>审批意见</h3>
+    <p>{{ comment }}</p>
+</div>
+{% endif %}
+
+{% if is_approved %}
+<p>您的培训计划已获批准，可以开始执行。相关人员将会收到培训通知。</p>
+{% else %}
+<p>您的培训计划未获批准，请根据审批意见修改后重新提交。</p>
+{% endif %}
+
+<p>TCMS培训管理系统</p>
+{% endblock %}

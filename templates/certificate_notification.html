@@ -1,0 +1,62 @@
+{% extends "email/base.html" %}
+
+{% block title %}证书颁发通知{% endblock %}
+
+{% block content %}
+<h2>亲爱的 {{ user.real_name }}，</h2>
+
+<div class="success-box">
+    <h3>🎉 恭喜您获得新的培训证书！</h3>
+</div>
+
+<div class="info-box">
+    <h3>证书信息</h3>
+    <table>
+        <tr>
+            <th>证书名称</th>
+            <td>{{ certificate.name }}</td>
+        </tr>
+        <tr>
+            <th>证书编号</th>
+            <td>{{ certificate.certificate_no }}</td>
+        </tr>
+        <tr>
+            <th>颁发日期</th>
+            <td>{{ certificate.issue_date|date:"Y年m月d日" }}</td>
+        </tr>
+        {% if certificate.expiry_date %}
+        <tr>
+            <th>有效期至</th>
+            <td>{{ certificate.expiry_date|date:"Y年m月d日" }}</td>
+        </tr>
+        {% endif %}
+        {% if certificate.competency %}
+        <tr>
+            <th>相关能力</th>
+            <td>{{ certificate.competency.name }}</td>
+        </tr>
+        {% endif %}
+        <tr>
+            <th>验证码</th>
+            <td>{{ certificate.verification_code }}</td>
+        </tr>
+    </table>
+</div>
+
+<p>您可以在系统中查看和下载证书电子版。此证书可用于：</p>
+<ul>
+    <li>岗位能力认证</li>
+    <li>职业发展记录</li>
+    <li>外部机构验证（使用验证码）</li>
+</ul>
+
+<div class="info-box">
+    <p><strong>证书验证：</strong><br>
+    证书验证码: <code>{{ certificate.verification_code }}</code><br>
+    您可以通过验证码在线验证证书真伪。</p>
+</div>
+
+<p>再次祝贺您取得优异成绩！</p>
+
+<p>TCMS培训管理系统</p>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "email/base.html" %}
+
+{% block title %}证书即将到期提醒{% endblock %}
+
+{% block content %}
+<h2>亲爱的 {{ user.real_name }}，</h2>
+
+<div class="warning-box">
+    <h3>⚠️ 您的培训证书即将到期</h3>
+</div>
+
+<p>请及时关注您的证书有效期，以免影响岗位资格认证。</p>
+
+<div class="info-box">
+    <h3>证书信息</h3>
+    <table>
+        <tr>
+            <th>证书名称</th>
+            <td>{{ certificate.name }}</td>
+        </tr>
+        <tr>
+            <th>证书编号</th>
+            <td>{{ certificate.certificate_no }}</td>
+        </tr>
+        <tr>
+            <th>颁发日期</th>
+            <td>{{ certificate.issue_date|date:"Y年m月d日" }}</td>
+        </tr>
+        <tr>
+            <th>到期日期</th>
+            <td><strong style="color: #dc3545;">{{ certificate.expiry_date|date:"Y年m月d日" }}</strong></td>
+        </tr>
+        {% if certificate.competency %}
+        <tr>
+            <th>相关能力</th>
+            <td>{{ certificate.competency.name }}</td>
+        </tr>
+        {% endif %}
+    </table>
+</div>
+
+<p><strong>建议操作：</strong></p>
+<ul>
+    <li>查看相关课程，准备复训</li>
+    <li>联系培训管理员安排补考或复训</li>
+    <li>及时更新证书，保持岗位资格有效性</li>
+</ul>
+
+<div class="info-box">
+    <p><strong>温馨提示：</strong><br>
+    证书到期后可能会影响您的岗位资格，请尽快完成续期。</p>
+</div>
+
+<p>如有疑问，请联系培训管理员。</p>
+
+<p>TCMS培训管理系统</p>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "email/base.html" %}
+
+{% block title %}考试通知{% endblock %}
+
+{% block content %}
+<h2>亲爱的 {{ user.real_name }}，</h2>
+
+<p>您有一场新的考试需要参加，请按时完成。</p>
+
+<div class="info-box">
+    <h3>考试信息</h3>
+    <table>
+        <tr>
+            <th>考试名称</th>
+            <td>{{ exam.title }}</td>
+        </tr>
+        <tr>
+            <th>考试代码</th>
+            <td>{{ exam.code }}</td>
+        </tr>
+        <tr>
+            <th>考试时间</th>
+            <td>{{ exam.start_time|date:"Y-m-d H:i" }} 至 {{ exam.end_time|date:"Y-m-d H:i" }}</td>
+        </tr>
+        <tr>
+            <th>考试时长</th>
+            <td>{{ exam.time_limit }} 分钟</td>
+        </tr>
+        <tr>
+            <th>总分</th>
+            <td>{{ exam.total_score }} 分</td>
+        </tr>
+        <tr>
+            <th>及格分数</th>
+            <td>{{ exam.passing_score }} 分</td>
+        </tr>
+        <tr>
+            <th>题目数量</th>
+            <td>{{ exam.total_questions }} 题</td>
+        </tr>
+    </table>
+</div>
+
+<div class="warning-box">
+    <strong>注意事项：</strong>
+    <ul>
+        <li>请在规定时间内完成考试</li>
+        <li>考试开始后请勿中断</li>
+        <li>及格后可获得相应证书</li>
+        <li>如有疑问请联系培训管理员</li>
+    </ul>
+</div>
+
+<p>祝您考试顺利！</p>
+
+<p>TCMS培训管理系统</p>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "email/base.html" %}
+
+{% block title %}培训提醒{% endblock %}
+
+{% block content %}
+<h2>亲爱的 {{ user.real_name }}，</h2>
+
+<p>这是您的培训提醒通知。</p>
+
+<div class="info-box">
+    <h3>培训信息</h3>
+    <table>
+        <tr>
+            <th>课程名称</th>
+            <td>{{ course.title }}</td>
+        </tr>
+        <tr>
+            <th>课程代码</th>
+            <td>{{ course.code }}</td>
+        </tr>
+        <tr>
+            <th>课程类型</th>
+            <td>{{ course.get_course_type_display }}</td>
+        </tr>
+        <tr>
+            <th>课程时长</th>
+            <td>{{ course.duration }} 分钟</td>
+        </tr>
+        <tr>
+            <th>学分</th>
+            <td>{{ course.credit }} 分</td>
+        </tr>
+        {% if course.instructor %}
+        <tr>
+            <th>讲师</th>
+            <td>{{ course.instructor }}</td>
+        </tr>
+        {% endif %}
+    </table>
+</div>
+
+<p><strong>温馨提示：</strong></p>
+<ul>
+    <li>请及时完成培训课程</li>
+    <li>按时参加考试（如有）</li>
+    <li>完成培训后可获得相应证书</li>
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="#" class="btn">进入学习</a>
+</div>
+
+<p>TCMS培训管理系统</p>
+{% endblock %}

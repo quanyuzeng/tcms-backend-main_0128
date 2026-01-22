@@ -1,0 +1,47 @@
+{% extends "email/base.html" %}
+
+{% block title %}课程报名成功{% endblock %}
+
+{% block content %}
+<h2>亲爱的 {{ user.real_name }}，</h2>
+
+<p>恭喜您成功报名参加培训课程！</p>
+
+<div class="success-box">
+    <h3>课程信息</h3>
+    <table>
+        <tr>
+            <th>课程名称</th>
+            <td>{{ course.title }}</td>
+        </tr>
+        <tr>
+            <th>课程代码</th>
+            <td>{{ course.code }}</td>
+        </tr>
+        <tr>
+            <th>课程类型</th>
+            <td>{{ course.get_course_type_display }}</td>
+        </tr>
+        <tr>
+            <th>课程时长</th>
+            <td>{{ course.duration }} 分钟</td>
+        </tr>
+        <tr>
+            <th>学分</th>
+            <td>{{ course.credit }} 分</td>
+        </tr>
+        {% if course.instructor %}
+        <tr>
+            <th>讲师</th>
+            <td>{{ course.instructor }}</td>
+        </tr>
+        {% endif %}
+    </table>
+</div>
+
+<p>您可以在系统中查看课程详情并开始学习。</p>
+
+<p>祝您学习愉快！</p>
+
+<p>TCMS培训管理系统</p>
+{% endblock %}

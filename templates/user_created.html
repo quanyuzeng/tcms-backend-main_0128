@@ -1,0 +1,62 @@
+{% extends "email/base.html" %}
+
+{% block title %}账户创建通知{% endblock %}
+
+{% block content %}
+<h2>亲爱的 {{ user.real_name }}，</h2>
+
+<p>欢迎加入TCMS培训管理系统！您的账户已创建成功。</p>
+
+<div class="info-box">
+    <h3>账户信息</h3>
+    <table>
+        <tr>
+            <th>用户名</th>
+            <td>{{ user.username }}</td>
+        </tr>
+        <tr>
+            <th>姓名</th>
+            <td>{{ user.real_name }}</td>
+        </tr>
+        <tr>
+            <th>邮箱</th>
+            <td>{{ user.email }}</td>
+        </tr>
+        <tr>
+            <th>员工编号</th>
+            <td>{{ user.employee_id }}</td>
+        </tr>
+        <tr>
+            <th>角色</th>
+            <td>{{ user.role.name }}</td>
+        </tr>
+        <tr>
+            <th>临时密码</th>
+            <td><code>{{ temp_password }}</code></td>
+        </tr>
+    </table>
+</div>
+
+<div class="warning-box">
+    <strong>首次登录说明：</strong>
+    <ul>
+        <li>请使用上述用户名和临时密码登录</li>
+        <li>首次登录后请立即修改密码</li>
+        <li>建议设置包含大小写字母、数字和特殊字符的强密码</li>
+        <li>请妥善保管您的账户信息</li>
+    </ul>
+</div>
+
+<p>您可以使用本系统：</p>
+<ul>
+    <li>参加在线培训课程</li>
+    <li>完成考试和评估</li>
+    <li>查看个人培训记录</li>
+    <li>获取和管理培训证书</li>
+    <li>跟踪个人能力提升进度</li>
+</ul>
+
+<p>祝您使用愉快！</p>
+
+<p>TCMS培训管理系统</p>
+{% endblock %}
