@@ -4,7 +4,16 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
+from datetime import datetime
 #from django.urls import handler404, handler500  # 添加这行
+
+class HomeView(TemplateView):
+    template_name = 'home.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['current_time'] = datetime.now()
+        return context
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -16,7 +25,7 @@ urlpatterns = [
     path('api/competency/', include('apps.competency.urls', namespace='competency')),
     path('api/reporting/', include('apps.reporting.urls', namespace='reporting')),
     path('api/audit/', include('apps.audit.urls', namespace='audit')),
-    path('', TemplateView.as_view(template_name='home.html'), name='home'),
+    path('', HomeView.as_view(), name='home'),
 ]
 
 # # 自定义错误处理（可选）

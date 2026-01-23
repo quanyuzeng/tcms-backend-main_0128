@@ -754,4 +754,5 @@ def generate_test_report():
     print(f"\n测试报告已保存到: {report_path}")
 
 
-if __name__ =
+if __name__ == "__main__":
+    run_all_tests()

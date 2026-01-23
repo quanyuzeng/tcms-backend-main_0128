@@ -3,6 +3,8 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView, TokenVerifyView
 from ..views.auth import login_view, logout_view, profile_view, password_change_view, password_reset_view
 
+app_name = 'auth'
+
 urlpatterns = [
     path('login/', login_view, name='auth-login'),
     path('logout/', logout_view, name='auth-logout'),

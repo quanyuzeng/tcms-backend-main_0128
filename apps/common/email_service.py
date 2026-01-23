@@ -35,9 +35,9 @@ class EmailService:
     def send_course_enrollment_notification(user, course):
         """发送课程报名通知"""
         subject = f'课程报名成功 - {course.title}'
-        
+
         # HTML模板
-        html_message = render_to_string('email/course_enrollment.html', {
+        html_message = render_to_string('course_enrollment.html', {
             'user': user,
             'course': course,
             'site_name': 'TCMS培训管理系统'
@@ -58,8 +58,8 @@ class EmailService:
     def send_exam_notification(user, exam):
         """发送考试通知"""
         subject = f'考试通知 - {exam.title}'
-        
-        html_message = render_to_string('email/exam_notification.html', {
+
+        html_message = render_to_string('exam_notification.html', {
             'user': user,
             'exam': exam,
             'site_name': 'TCMS培训管理系统'
@@ -78,8 +78,8 @@ class EmailService:
     def send_exam_result_notification(user, exam_result):
         """发送考试成绩通知"""
         subject = f'考试成绩通知 - {exam_result.exam.title}'
-        
-        html_message = render_to_string('email/exam_result.html', {
+
+        html_message = render_to_string('exam_result.html', {
             'user': user,
             'exam_result': exam_result,
             'site_name': 'TCMS培训管理系统'
@@ -98,8 +98,8 @@ class EmailService:
     def send_certificate_notification(user, certificate):
         """发送证书颁发通知"""
         subject = f'培训证书颁发 - {certificate.name}'
-        
-        html_message = render_to_string('email/certificate_notification.html', {
+
+        html_message = render_to_string('certificate_notification.html', {
             'user': user,
             'certificate': certificate,
             'site_name': 'TCMS培训管理系统'
@@ -121,7 +121,7 @@ class EmailService:
         
         # 通知创建者
         if plan.created_by and plan.created_by.email:
-            html_message = render_to_string('email/training_plan_approval.html', {
+            html_message = render_to_string('training_plan_approval.html', {
                 'plan': plan,
                 'is_approved': is_approved,
                 'approver': approver,
@@ -142,8 +142,8 @@ class EmailService:
     def send_password_reset_email(user, reset_token):
         """发送密码重置邮件"""
         subject = '密码重置请求'
-        
-        html_message = render_to_string('email/password_reset.html', {
+
+        html_message = render_to_string('password_reset.html', {
             'user': user,
             'reset_token': reset_token,
             'site_name': 'TCMS培训管理系统'
@@ -162,8 +162,8 @@ class EmailService:
     def send_user_created_notification(user, temp_password):
         """发送用户创建通知"""
         subject = '账户创建通知'
-        
-        html_message = render_to_string('email/user_created.html', {
+
+        html_message = render_to_string('user_created.html', {
             'user': user,
             'temp_password': temp_password,
             'site_name': 'TCMS培训管理系统'
@@ -182,8 +182,8 @@ class EmailService:
     def send_certificate_expiry_warning(user, certificate):
         """发送证书即将到期提醒"""
         subject = f'证书即将到期提醒 - {certificate.name}'
-        
-        html_message = render_to_string('email/certificate_expiry_warning.html', {
+
+        html_message = render_to_string('certificate_expiry_warning.html', {
             'user': user,
             'certificate': certificate,
             'site_name': 'TCMS培训管理系统'
@@ -202,8 +202,8 @@ class EmailService:
     def send_training_reminder(user, course):
         """发送培训提醒"""
         subject = f'培训提醒 - {course.title}'
-        
-        html_message = render_to_string('email/training_reminder.html', {
+
+        html_message = render_to_string('training_reminder.html', {
             'user': user,
             'course': course,
             'site_name': 'TCMS培训管理系统'

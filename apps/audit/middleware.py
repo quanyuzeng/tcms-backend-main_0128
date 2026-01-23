@@ -72,11 +72,11 @@ class AuditLogMiddleware(MiddlewareMixin):
             object_type, object_id, object_name = self._get_object_info(request, response)
             
             # 判断状态
-            status = AuditLog.Status.SUCCESS if response.status_code < 400 else AuditLog.Status.FAILED
-            
+            log_status = AuditLog.Status.SUCCESS if response.status_code < 400 else AuditLog.Status.FAILED
+
             # 获取错误信息
             error_message = ''
-            if status == AuditLog.Status.FAILED and response_result:
+            if log_status == AuditLog.Status.FAILED and response_result:
                 if isinstance(response_result, dict):
                     error_message = response_result.get('message', '')
                     if not error_message:
@@ -99,7 +99,7 @@ class AuditLogMiddleware(MiddlewareMixin):
                 request_path=request.path,
                 request_params=request_params,
                 response_result=response_result,
-                status=status,
+                status=log_status,
                 error_message=error_message,
                 response_time=response_time
             )
