@@ -159,7 +159,7 @@ tcms-backend/
    ```
 
 3. **访问API文档**
-   - 打开浏览器访问: http://localhost:8000/api/
+   - 打开浏览器访问: http://localhost:8080/api/
    - 使用创建的超级用户登录
 
 ### 功能测试

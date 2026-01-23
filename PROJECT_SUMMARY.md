@@ -343,7 +343,7 @@ python manage.py runserver
 
 ## API文档
 
-启动项目后，访问: http://localhost:8000/api/docs/
+启动项目后，访问: http://localhost:8080/api/docs/
 
 ## 测试
 

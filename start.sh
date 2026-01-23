@@ -9,4 +9,4 @@ export DJANGO_SETTINGS_MODULE=config.settings.development
 
 # 启动 Django 开发服务器
 echo "Starting TCMS Backend..."
-python manage.py runserver 0.0.0.0:8000
+python manage.py runserver 0.0.0.0:8080

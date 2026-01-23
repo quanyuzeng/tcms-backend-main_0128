@@ -134,7 +134,7 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-服务器将在 http://127.0.0.1:8000 启动
+服务器将在 http://127.0.0.1:8080 启动
 
 ## API 文档
 

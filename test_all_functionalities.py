@@ -27,7 +27,7 @@ from apps.competency.models import Competency, CompetencyAssessment, Certificate
 
 # 测试配置
 TEST_CONFIG = {
-    'base_url': 'http://localhost:8000/api',
+    'base_url': 'http://localhost:8080/api',
     'admin_username': 'admin_test',
     'admin_password': 'admin123456',
     'test_users_count': 5,

@@ -375,7 +375,7 @@ python manage.py runserver
 
 ### 1. 配置前端环境变量
 ```env
-VITE_API_BASE_URL=http://localhost:8000/api
+VITE_API_BASE_URL=http://localhost:8080/api
 ```
 
 ### 2. 启动前端

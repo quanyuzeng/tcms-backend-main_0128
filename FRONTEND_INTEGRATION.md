@@ -18,7 +18,7 @@
 
 ```env
 # 开发环境
-VITE_API_BASE_URL=http://localhost:8000/api
+VITE_API_BASE_URL=http://localhost:8080/api
 VITE_APP_NAME=TCMS
 
 # 生产环境

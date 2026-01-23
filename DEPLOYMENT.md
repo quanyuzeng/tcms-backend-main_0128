@@ -147,7 +147,7 @@ source venv/bin/activate
 export DJANGO_SETTINGS_MODULE=config.settings.production
 exec gunicorn config.wsgi:application \
     --name tcms \
-    --bind 0.0.0.0:8000 \
+    --bind 0.0.0.0:8080 \
     --workers 4 \
     --timeout 300 \
     --log-level=info \
@@ -212,7 +212,7 @@ server {
     
     # API 代理
     location / {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -245,7 +245,7 @@ Type=simple
 User=www-data
 WorkingDirectory=/opt/tcms-backend
 Environment="DJANGO_SETTINGS_MODULE=config.settings.production"
-ExecStart=/opt/tcms-backend/venv/bin/gunicorn config.wsgi:application --name tcms --bind 0.0.0.0:8000 --workers 4 --timeout 300 --log-level=info
+ExecStart=/opt/tcms-backend/venv/bin/gunicorn config.wsgi:application --name tcms --bind 0.0.0.0:8080 --workers 4 --timeout 300 --log-level=info
 Restart=always
 RestartSec=10
 
@@ -430,7 +430,7 @@ safety check
 sudo journalctl -u tcms --no-pager
 
 # 检查端口占用
-sudo netstat -tlnp | grep 8000
+sudo netstat -tlnp | grep 8080
 
 # 检查配置文件
 python manage.py check
