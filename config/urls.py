@@ -4,7 +4,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
-from django.urls import handler404, handler500  # 添加这行
+#from django.urls import handler404, handler500  # 添加这行
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -19,9 +19,9 @@ urlpatterns = [
     path('', TemplateView.as_view(template_name='home.html'), name='home'),
 ]
 
-# 自定义错误处理（可选）
-handler404 = 'apps.core.views.custom_404'
-handler500 = 'apps.core.views.custom_500'
+# # 自定义错误处理（可选）
+# handler404 = 'apps.core.views.custom_404'
+# handler500 = 'apps.core.views.custom_500'
 
 # Static and media files
 if settings.DEBUG:

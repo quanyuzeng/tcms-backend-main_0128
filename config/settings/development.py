@@ -2,10 +2,23 @@
 from .base import *
 
 # Debug
-DEBUG = True
+DEBUG = True          # 开发环境建议 True，方便看报错
 
-# CORS for development
+# CORS - 完全放行
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'x-language',
+]
 
 # Database for development
 DATABASES = {
@@ -34,7 +47,7 @@ LOGGING = {
     },
     'handlers': {
         'console': {
-            'level': 'DEBUG',
+             'level': 'INFO',
             'class': 'logging.StreamHandler',
             'formatter': 'simple',
         },

@@ -197,7 +197,7 @@ CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
     'authorization',
-    'content-type',
+    'content-type',   # ← 保持小写即可，django-cors-headers 会统一转小写比对
     'dnt',
     'origin',
     'user-agent',
