@@ -15,7 +15,8 @@ from .serializers import (
     TrainingRecordCreateSerializer, CourseEvaluationSerializer,
     TrainingStatisticsSerializer
 )
-from apps.users.permissions import IsTrainingManager, IsDeptManager
+from apps.users.permissions import IsManager, IsManagerOrReadOnly, IsTrainingManager, IsDeptManager
+from apps.users.models import User
 
 
 class CourseCategoryViewSet(ModelViewSet):
@@ -23,11 +24,16 @@ class CourseCategoryViewSet(ModelViewSet):
     
     queryset = CourseCategory.objects.all()
     serializer_class = CourseCategorySerializer
+    # 所有经理和工程师都可以创建
     permission_classes = [IsAuthenticated, IsTrainingManager]
     
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'code', 'description']
     ordering = ['sort_order', 'name']
+    
+    def perform_create(self, serializer):
+        """自动设置created_by"""
+        serializer.save(created_by=self.request.user)
     
     @action(detail=False, methods=['get'])
     def tree(self, request):
@@ -47,13 +53,20 @@ class CourseViewSet(ModelViewSet):
     
     queryset = Course.objects.select_related('category', 'created_by').prefetch_related('prerequisites')
     serializer_class = CourseSerializer
-    permission_classes = [IsAuthenticated, IsTrainingManager]
+    permission_classes = [IsAuthenticated]
     
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'course_type', 'status', 'created_by']
     search_fields = ['title', 'code', 'description', 'instructor', 'tags']
     ordering_fields = ['created_at', 'updated_at', 'title', 'view_count', 'enrollment_count']
     ordering = ['-created_at']
+    
+    def get_permissions(self):
+        """动态权限配置"""
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'publish']:
+            # 所有经理和工程师都可以创建课程
+            return [IsAuthenticated(), IsTrainingManager()]
+        return [IsAuthenticated()]
     
     def get_serializer_class(self):
         """根据操作选择序列化器"""
@@ -65,12 +78,22 @@ class CourseViewSet(ModelViewSet):
         """根据权限过滤查询集"""
         user = self.request.user
         
-        # 管理员和培训管理员可以查看所有课程
-        if user.role.code in ['admin', 'hr_manager', 'training_manager']:
+        # 管理员、经理、工程师可以查看所有课程
+        if user.role and user.role.code in [
+            'admin', 'hr_manager',
+            'training_manager', 'exam_manager',
+            'engineering_manager', 'dept_manager',
+            'me_engineer', 'te_engineer', 'technician',
+            'production_operator'
+        ]:
             return self.queryset
         
         # 其他用户只能查看已发布的课程
         return self.queryset.filter(status='published')
+    
+    def perform_create(self, serializer):
+        """自动设置created_by"""
+        serializer.save(created_by=self.request.user)
     
     @action(detail=True, methods=['post'])
     def publish(self, request, pk=None):
@@ -91,7 +114,7 @@ class CourseViewSet(ModelViewSet):
             'data': CourseSerializer(course).data
         })
     
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def enroll(self, request, pk=None):
         """报名课程"""
         course = self.get_object()
@@ -137,36 +160,47 @@ class TrainingPlanViewSet(ModelViewSet):
         'target_department', 'target_position', 'created_by', 'approved_by'
     ).prefetch_related('courses', 'target_users')
     serializer_class = TrainingPlanSerializer
-    permission_classes = [IsAuthenticated, IsTrainingManager]
+    permission_classes = [IsAuthenticated]
     
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['plan_type', 'status', 'target_department', 'target_position']
     search_fields = ['title', 'code', 'description']
     ordering = ['-created_at']
     
+    def get_permissions(self):
+        """动态权限配置"""
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            # 所有经理和工程师都可以创建
+            return [IsAuthenticated(), IsTrainingManager()]
+        elif self.action == 'approve':
+            # 所有经理都可以审批
+            return [IsAuthenticated(), IsDeptManager()]
+        return [IsAuthenticated()]
+    
     def get_queryset(self):
         """根据权限过滤查询集"""
         user = self.request.user
         
-        # 管理员和培训管理员可以查看所有计划
-        if user.role.code in ['admin', 'hr_manager', 'training_manager']:
+        # 所有经理和工程师可以查看所有计划
+        if user.role and user.role.code in [
+            'admin', 'hr_manager',
+            'training_manager', 'exam_manager',
+            'engineering_manager', 'dept_manager',
+            'me_engineer', 'te_engineer', 'technician',
+            'production_operator'
+        ]:
             return self.queryset
-        
-        # 部门经理可以查看本部门和公司级计划
-        if user.role.code == 'dept_manager':
-            return self.queryset.filter(
-                Q(target_department=user.department) |
-                Q(plan_type='company') |
-                Q(target_users=user) |
-                Q(created_by=user)
-            )
         
         # 普通用户只能查看包含自己的计划
         return self.queryset.filter(
             Q(target_users=user) | Q(created_by=user)
         )
     
-    @action(detail=True, methods=['post'])
+    def perform_create(self, serializer):
+        """自动设置created_by"""
+        serializer.save(created_by=self.request.user)
+    
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsDeptManager])
     def approve(self, request, pk=None):
         """审批培训计划"""
         plan = self.get_object()
@@ -230,15 +264,15 @@ class TrainingRecordViewSet(ModelViewSet):
         """根据权限过滤查询集"""
         user = self.request.user
         
-        # 管理员可以查看所有记录
-        if user.role.code in ['admin', 'hr_manager', 'training_manager']:
+        # 所有经理和工程师可以查看所有记录
+        if user.role and user.role.code in [
+            'admin', 'hr_manager',
+            'training_manager', 'exam_manager',
+            'engineering_manager', 'dept_manager',
+            'me_engineer', 'te_engineer', 'technician',
+            'production_operator'
+        ]:
             return self.queryset
-        
-        # 部门经理可以查看本部门记录
-        if user.role.code == 'dept_manager':
-            return self.queryset.filter(
-                Q(user__department=user.department) | Q(user=user)
-            )
         
         # 普通用户只能查看自己的记录
         return self.queryset.filter(user=user)
@@ -271,47 +305,25 @@ class TrainingRecordViewSet(ModelViewSet):
         """获取培训统计"""
         user = request.user
         
-        # 基础统计
-        if user.role.code in ['admin', 'hr_manager', 'training_manager']:
+        # 所有经理和工程师可以查看全部统计
+        if user.role and user.role.code in [
+            'admin', 'hr_manager',
+            'training_manager', 'exam_manager',
+            'engineering_manager', 'dept_manager',
+            'me_engineer', 'te_engineer', 'technician',
+            'production_operator'
+        ]:
             total_courses = Course.objects.filter(status='published').count()
             total_trainees = User.objects.filter(status='active').count()
-        else:
-            total_courses = Course.objects.filter(
-                status='published',
-                training_records__user=user
-            ).distinct().count()
-            total_trainees = 1
-        
-        # 计算完成率
-        if user.role.code in ['admin', 'hr_manager', 'training_manager']:
-            completed_records = TrainingRecord.objects.filter(
-                status='completed'
-            ).count()
             total_records = TrainingRecord.objects.count()
-        else:
-            completed_records = TrainingRecord.objects.filter(
-                user=user,
-                status='completed'
-            ).count()
-            total_records = TrainingRecord.objects.filter(user=user).count()
-        
-        completion_rate = (completed_records / total_records * 100) if total_records > 0 else 0
-        
-        # 平均成绩
-        if user.role.code in ['admin', 'hr_manager', 'training_manager']:
+            completed_records = TrainingRecord.objects.filter(status='completed').count()
             avg_score = TrainingRecord.objects.filter(
                 score__isnull=False
             ).aggregate(avg=Avg('score'))['avg'] or 0
-        else:
-            avg_score = TrainingRecord.objects.filter(
-                user=user,
-                score__isnull=False
-            ).aggregate(avg=Avg('score'))['avg'] or 0
-        
-        # 部门统计
-        department_stats = []
-        if user.role.code in ['admin', 'hr_manager', 'training_manager']:
+            
+            # 部门统计
             from apps.organization.models import Department
+            department_stats = []
             departments = Department.objects.filter(status='active')
             for dept in departments:
                 dept_records = TrainingRecord.objects.filter(
@@ -329,6 +341,25 @@ class TrainingRecordViewSet(ModelViewSet):
                     'trainee_count': dept.employee_count,
                     'completion_rate': round(dept_completion_rate, 2)
                 })
+        else:
+            # 普通用户只能看自己的
+            total_courses = Course.objects.filter(
+                status='published',
+                training_records__user=user
+            ).distinct().count()
+            total_trainees = 1
+            total_records = TrainingRecord.objects.filter(user=user).count()
+            completed_records = TrainingRecord.objects.filter(
+                user=user,
+                status='completed'
+            ).count()
+            avg_score = TrainingRecord.objects.filter(
+                user=user,
+                score__isnull=False
+            ).aggregate(avg=Avg('score'))['avg'] or 0
+            department_stats = []
+        
+        completion_rate = (completed_records / total_records * 100) if total_records > 0 else 0
         
         data = {
             'total_courses': total_courses,

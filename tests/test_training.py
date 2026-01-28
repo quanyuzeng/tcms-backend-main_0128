@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""test_training_fixed.py - 培训管理测试（修复权限和数据问题）"""
+"""培训管理测试（修复权限和数据问题）"""
 from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -16,20 +16,27 @@ class TrainingTests(TestCase):
     """培训管理测试"""
     
     def setUp(self):
-        """测试准备"""
+        """测试准备：创建与业务代码匹配的角色和数据"""
         self.client = APIClient()
         
-        # 创建角色 - 确保权限正确
+        # 创建业务代码中实际使用的角色
         self.admin_role = Role.objects.create(
             name='系统管理员',
             code='admin',
-            permissions={'permissions': ['*']}
+            permissions={'all': True}
+        )
+        
+        # 培训经理拥有全部权限
+        self.training_role = Role.objects.create(
+            name='培训经理',
+            code='training_manager',
+            permissions={'training': {'create': True, 'approve': True, 'read': True, 'write': True}}
         )
         
         self.employee_role = Role.objects.create(
-            name='普通员工',
-            code='employee',
-            permissions={'permissions': ['profile:*', 'course:*', 'exam:take']}
+            name='ME工程师',
+            code='me_engineer',
+            permissions={'training': {'read': True, 'enroll': True}}
         )
         
         # 创建部门
@@ -47,6 +54,16 @@ class TrainingTests(TestCase):
             employee_id='ADMIN001',
             email='admin@example.com',
             role=self.admin_role
+        )
+        
+        # 创建培训管理员
+        self.training_user = get_user_model().objects.create_user(
+            username='training_manager',
+            password='training123',
+            real_name='培训经理',
+            employee_id='TR001',
+            email='training@example.com',
+            role=self.training_role
         )
         
         # 创建普通用户
@@ -67,10 +84,10 @@ class TrainingTests(TestCase):
             description='技术相关培训'
         )
         
-        # 创建课程 - 确保 created_by 字段正确设置
+        # 创建课程
         self.course = Course.objects.create(
             code='COURSE001',
-            title='Python基础培训',
+            title='Python基础培训',  # 修正：使用 title= 而不是 'title':
             description='Python编程基础',
             category=self.category,
             course_type='online',
@@ -79,26 +96,20 @@ class TrainingTests(TestCase):
             passing_score=60.00,
             instructor='张老师',
             status='published',
-            created_by=self.admin_user
+            created_by=self.training_user
         )
     
     def test_list_courses(self):
-        """查看课程列表 - 修复：使用有权限的用户"""
-        # 使用管理员用户，确保有权限
-        self.client.force_authenticate(user=self.admin_user)
+        """查看课程列表"""
+        self.client.force_authenticate(user=self.employee_user)
         
         url = '/api/training/courses/'
         response = self.client.get(url)
-        
-        # 如果返回 403，可能是权限配置问题，我们记录但不强制失败
-        if response.status_code == status.HTTP_403_FORBIDDEN:
-            self.skipTest("Permission denied - may need to adjust role permissions")
-        
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_create_course(self):
-        """创建课程 - 修复：确保所有必填字段"""
-        self.client.force_authenticate(user=self.admin_user)
+        """创建课程 - 确保created_by自动赋值"""
+        self.client.force_authenticate(user=self.training_user)
         
         url = '/api/training/courses/'
         data = {
@@ -115,21 +126,20 @@ class TrainingTests(TestCase):
         }
         
         response = self.client.post(url, data, format='json')
-        
-        # 如果 400，可能是序列化器验证问题，打印错误信息
-        if response.status_code == status.HTTP_400_BAD_REQUEST:
-            print(f"Create course error: {response.data}")
-        
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # 验证created_by已自动设置
+        course = Course.objects.get(code='COURSE002')
+        self.assertEqual(course.created_by, self.training_user)
     
     def test_publish_course(self):
         """发布课程"""
-        self.client.force_authenticate(user=self.admin_user)
+        self.client.force_authenticate(user=self.training_user)
         
         # 创建草稿课程
         draft_course = Course.objects.create(
             code='COURSE003',
-            title='草稿课程',
+            title='草稿课程',  # 修正：使用 title=
             description='草稿课程',
             category=self.category,
             course_type='online',
@@ -137,27 +147,31 @@ class TrainingTests(TestCase):
             credit=1.0,
             passing_score=60.00,
             status='draft',
-            created_by=self.admin_user
+            created_by=self.training_user
         )
         
         url = f'/api/training/courses/{draft_course.id}/publish/'
         response = self.client.post(url)
-        
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # 验证状态已更新
+        draft_course.refresh_from_db()
+        self.assertEqual(draft_course.status, 'published')
     
     def test_enroll_course(self):
-        """报名课程 - 修复：接受 200 或 201"""
+        """报名课程"""
         self.client.force_authenticate(user=self.employee_user)
         
         url = f'/api/training/courses/{self.course.id}/enroll/'
         response = self.client.post(url)
-        
-        # 接受 200 或 201
         self.assertIn(response.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
+        
+        # 验证已创建记录
+        self.assertTrue(TrainingRecord.objects.filter(user=self.employee_user, course=self.course).exists())
     
     def test_create_training_plan(self):
-        """创建培训计划 - 修复：确保所有必填字段"""
-        self.client.force_authenticate(user=self.admin_user)
+        """创建培训计划 - 确保created_by自动赋值"""
+        self.client.force_authenticate(user=self.training_user)
         
         url = '/api/training/plans/'
         data = {
@@ -172,28 +186,27 @@ class TrainingTests(TestCase):
         }
         
         response = self.client.post(url, data, format='json')
-        
-        # 如果 400，打印错误信息
-        if response.status_code == status.HTTP_400_BAD_REQUEST:
-            print(f"Create plan error: {response.data}")
-        
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # 验证created_by已自动设置
+        plan = TrainingPlan.objects.get(code='PLAN001')
+        self.assertEqual(plan.created_by, self.training_user)
     
     def test_approve_training_plan(self):
-        """审批培训计划"""
-        self.client.force_authenticate(user=self.admin_user)
+        """审批培训计划 - 培训经理有审批权限"""
+        self.client.force_authenticate(user=self.training_user)
         
         # 创建待审批的培训计划
         plan = TrainingPlan.objects.create(
             code='PLAN002',
-            title='待审批计划',
+            title='待审批计划',  # 修正：使用 title=
             description='待审批计划',
             plan_type='department',
             target_department=self.department,
             start_date=timezone.now().date(),
             end_date=timezone.now().date() + timedelta(days=30),
             status='pending',
-            created_by=self.admin_user
+            created_by=self.training_user
         )
         plan.courses.add(self.course)
         
@@ -204,11 +217,16 @@ class TrainingTests(TestCase):
         }
         
         response = self.client.post(url, data, format='json')
+        # 培训经理有审批权限，应返回200
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # 验证状态已更新
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, 'approved')
     
     def test_training_statistics(self):
         """培训统计"""
-        self.client.force_authenticate(user=self.admin_user)
+        self.client.force_authenticate(user=self.training_user)
         
         # 创建培训记录
         TrainingRecord.objects.create(
@@ -222,5 +240,8 @@ class TrainingTests(TestCase):
         
         url = '/api/training/records/statistics/'
         response = self.client.get(url)
-        
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # 验证数据结构
+        self.assertIn('total_courses', response.data['data'])
+        self.assertIn('completion_rate', response.data['data'])

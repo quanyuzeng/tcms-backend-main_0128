@@ -38,7 +38,7 @@ class CourseSerializer(serializers.ModelSerializer):
             'view_count', 'enrollment_count', 'completion_count', 'completion_rate',
             'created_by', 'created_by_name', 'created_at', 'updated_at', 'published_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'published_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'published_at', 'created_by']
 
 
 class CourseDetailSerializer(CourseSerializer):
@@ -76,13 +76,14 @@ class TrainingPlanSerializer(serializers.ModelSerializer):
             'approval_comment', 'created_by', 'created_by_name',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by', 'approved_by', 'approved_at']
     
     def create(self, validated_data):
         """创建培训计划"""
         course_ids = validated_data.pop('course_ids', [])
         target_users = validated_data.pop('target_users', [])
         
+        # created_by 由视图的 perform_create 设置，这里不处理
         plan = TrainingPlan.objects.create(**validated_data)
         
         # 关联课程
@@ -99,6 +100,31 @@ class TrainingPlanSerializer(serializers.ModelSerializer):
             plan.target_users.set(target_users)
         
         return plan
+    
+    def update(self, instance, validated_data):
+        """更新培训计划"""
+        course_ids = validated_data.pop('course_ids', None)
+        target_users = validated_data.pop('target_users', None)
+        
+        # 更新基本字段
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # 更新课程关联
+        if course_ids is not None:
+            from apps.training.models import Course
+            courses = Course.objects.filter(id__in=course_ids)
+            instance.courses.set(courses)
+            instance.total_hours = sum(course.duration for course in courses)
+            instance.total_courses = len(courses)
+            instance.save()
+        
+        # 更新用户关联
+        if target_users is not None:
+            instance.target_users.set(target_users)
+        
+        return instance
 
 
 class TrainingRecordSerializer(serializers.ModelSerializer):

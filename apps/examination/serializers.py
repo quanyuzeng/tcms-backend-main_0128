@@ -17,7 +17,7 @@ class QuestionBankSerializer(serializers.ModelSerializer):
             'question_count', 'total_score', 'created_by', 'created_by_name',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
 
 
 class QuestionSerializer(serializers.ModelSerializer):
@@ -34,7 +34,7 @@ class QuestionSerializer(serializers.ModelSerializer):
             'explanation', 'score', 'sort_order', 'created_by', 'created_by_name',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
 
 
 class QuestionImportSerializer(serializers.Serializer):
@@ -64,7 +64,7 @@ class ExamSerializer(serializers.ModelSerializer):
             'status', 'participants', 'participant_count', 'result_count',
             'created_by', 'created_by_name', 'created_at', 'updated_at', 'published_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'published_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'published_at', 'created_by']
     
     def validate(self, attrs):
         """验证数据"""

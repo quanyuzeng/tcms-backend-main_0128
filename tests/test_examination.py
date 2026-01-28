@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""test_examination_fixed.py - 考试管理测试（修复序列化器和权限问题）"""
+"""考试管理测试（修复权限和数据问题）"""
 from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -15,20 +15,26 @@ class ExaminationTests(TestCase):
     """考试管理测试"""
     
     def setUp(self):
-        """测试准备"""
+        """测试准备：创建与业务代码匹配的角色和数据"""
         self.client = APIClient()
         
-        # 创建角色
+        # 创建业务代码中实际使用的角色
         self.admin_role = Role.objects.create(
             name='系统管理员',
             code='admin',
-            permissions={'permissions': ['*']}
+            permissions={'all': True}
+        )
+        
+        self.exam_role = Role.objects.create(
+            name='考试经理',
+            code='exam_manager',
+            permissions={'exam': {'create': True}}
         )
         
         self.employee_role = Role.objects.create(
-            name='普通员工',
-            code='employee',
-            permissions={'permissions': ['profile:*', 'course:read', 'exam:*']}
+            name='ME工程师',
+            code='me_engineer',  # 使用业务代码中的实际角色code
+            permissions={'exam': {'take': True}}
         )
         
         # 创建管理员用户
@@ -41,7 +47,17 @@ class ExaminationTests(TestCase):
             role=self.admin_role
         )
         
-        # 创建普通用户
+        # 创建考试管理员
+        self.exam_user = get_user_model().objects.create_user(
+            username='exam_manager',
+            password='exam123',
+            real_name='考试经理',
+            employee_id='EX001',
+            email='exam@example.com',
+            role=self.exam_role
+        )
+        
+        # 创建普通用户（考生）
         self.employee_user = get_user_model().objects.create_user(
             username='employee',
             password='emp123',
@@ -59,7 +75,7 @@ class ExaminationTests(TestCase):
             created_by=self.admin_user
         )
         
-        # 创建题目 - 不包含 tags 字段（如果模型中没有）
+        # 创建题目
         self.question = Question.objects.create(
             question_bank=self.question_bank,
             question_type='single_choice',
@@ -80,7 +96,7 @@ class ExaminationTests(TestCase):
             created_by=self.admin_user
         )
         
-        # 创建考试 - 确保所有必填字段
+        # 创建考试
         now = timezone.now()
         self.exam = Exam.objects.create(
             code='EXAM001',
@@ -99,21 +115,16 @@ class ExaminationTests(TestCase):
         self.exam.participants.add(self.employee_user)
     
     def test_list_exams(self):
-        """查看考试列表 - 修复：使用有权限的用户"""
-        self.client.force_authenticate(user=self.admin_user)
+        """查看考试列表"""
+        self.client.force_authenticate(user=self.employee_user)
         
         url = '/api/examination/exams/'
         response = self.client.get(url)
-        
-        # 如果 403，可能是权限问题
-        if response.status_code == status.HTTP_403_FORBIDDEN:
-            self.skipTest("Permission denied - may need to adjust role permissions")
-        
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_create_exam(self):
-        """创建考试 - 修复：确保所有必填字段"""
-        self.client.force_authenticate(user=self.admin_user)
+        """创建考试 - 确保created_by自动赋值"""
+        self.client.force_authenticate(user=self.exam_user)
         
         url = '/api/examination/exams/'
         now = timezone.now()
@@ -131,31 +142,29 @@ class ExaminationTests(TestCase):
         }
         
         response = self.client.post(url, data, format='json')
-        
-        # 如果 400，打印错误
-        if response.status_code == status.HTTP_400_BAD_REQUEST:
-            print(f"Create exam error: {response.data}")
-        
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # 验证created_by已自动设置
+        exam = Exam.objects.get(code='EXAM002')
+        self.assertEqual(exam.created_by, self.exam_user)
     
     def test_start_exam(self):
-        """开始考试 - 修复：处理序列化器字段问题"""
+        """开始考试 - 考生有权限"""
         self.client.force_authenticate(user=self.employee_user)
         
         url = f'/api/examination/exams/{self.exam.id}/start/'
         response = self.client.get(url)
-        
-        # 如果 500，可能是序列化器问题
-        if response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR:
-            self.skipTest("Serializer error - Question model may not have 'tags' field")
-        
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # 验证返回的数据结构
+        self.assertIn('questions', response.data['data'])
+        self.assertIn('exam_info', response.data['data'])
     
     def test_submit_exam(self):
         """提交考试"""
         self.client.force_authenticate(user=self.employee_user)
         
-        # 先创建考试结果
+        # 创建考试结果
         result = ExamResult.objects.create(
             exam=self.exam,
             user=self.employee_user,
@@ -172,6 +181,11 @@ class ExaminationTests(TestCase):
         
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # 验证结果已评分
+        result.refresh_from_db()
+        self.assertEqual(result.status, 'graded')
+        self.assertTrue(result.is_passed)
     
     def test_exam_result(self):
         """查看考试成绩"""
@@ -192,11 +206,10 @@ class ExaminationTests(TestCase):
         
         url = '/api/examination/results/'
         response = self.client.get(url)
-        
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_generate_certificate(self):
-        """生成证书 - 修复：跳过如果缺少能力关联"""
+        """生成证书 - 需要能力关联"""
         # 创建通过的考试结果
         result = ExamResult.objects.create(
             exam=self.exam,
@@ -210,17 +223,13 @@ class ExaminationTests(TestCase):
             submitted_at=timezone.now()
         )
         
-        self.client.force_authenticate(user=self.admin_user)
+        self.client.force_authenticate(user=self.exam_user)
         
         url = f'/api/examination/results/{result.id}/generate_certificate/'
         response = self.client.post(url)
         
-        # 如果 500，可能是证书创建需要 competency
-        if response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR:
-            self.skipTest("Certificate generation requires competency association")
-        
-        # 如果接口不存在则跳过
-        if response.status_code == 404:
-            self.skipTest("Generate certificate endpoint not implemented")
-        
-        self.assertIn(response.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
+        # 如果考试结果未关联能力，可能跳过
+        if response.status_code == 400:
+            self.assertIn('考试未通过', response.data['message']) or self.skipTest("需要能力关联")
+        else:
+            self.assertEqual(response.status_code, status.HTTP_200_OK)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""test_user_management_fixed.py - 用户管理测试（修复权限问题）"""
+"""test_user_management_fixed.py - 用户管理测试"""
 from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -15,17 +15,17 @@ class UserManagementTests(TestCase):
         """测试准备"""
         self.client = APIClient()
         
-        # 创建角色 - 给普通员工添加查看用户列表权限
+        # 创建角色 - 使用业务代码中的实际角色code
         self.admin_role = Role.objects.create(
             name='系统管理员',
             code='admin',
-            permissions={'permissions': ['*']}
+            permissions={'all': True}
         )
         
         self.employee_role = Role.objects.create(
             name='普通员工',
-            code='employee',
-            permissions={'permissions': ['profile:*', 'course:read', 'exam:take', 'user:read']}
+            code='me_engineer',  # 使用业务实际角色
+            permissions={'user': {'read': True, 'create': True}}  # 根据权限矩阵，普通员工有创建权限
         )
         
         # 创建管理员用户
@@ -58,15 +58,14 @@ class UserManagementTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_list_users_as_employee(self):
-        """普通用户查看用户列表 - 修复：允许查看但可能只返回自己"""
+        """普通用户查看用户列表 - 根据新权限配置，允许查看"""
         self.client.force_authenticate(user=self.employee_user)
         
         url = '/api/users/'
         response = self.client.get(url)
         
-        # 修改：普通用户可能返回 200 但数据受限，或 403
-        # 这里我们接受 200 或 403，只要不是 500
-        self.assertIn(response.status_code, [status.HTTP_200_OK, status.HTTP_403_FORBIDDEN])
+        # 根据权限矩阵，普通员工有user:read权限，应返回200
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_create_user(self):
         """创建用户"""
@@ -111,7 +110,6 @@ class UserManagementTests(TestCase):
         """重置密码"""
         self.client.force_authenticate(user=self.admin_user)
         
-        # 尝试调用重置密码接口（如果不存在会返回404，测试跳过）
         url = f'/api/users/{self.employee_user.id}/reset_password/'
         data = {
             'new_password': 'resetpass123'

@@ -15,7 +15,8 @@ from .serializers import (
     ExamSerializer, ExamDetailSerializer, ExamResultSerializer,
     ExamSubmitSerializer, ParticipantManageSerializer
 )
-from apps.users.permissions import IsExamManager, IsTrainingManager
+from apps.users.permissions import IsExamManager, IsManager, IsManagerOrReadOnly
+from apps.users.models import User
 
 
 class QuestionBankViewSet(ModelViewSet):
@@ -23,11 +24,16 @@ class QuestionBankViewSet(ModelViewSet):
     
     queryset = QuestionBank.objects.select_related('created_by').all()
     serializer_class = QuestionBankSerializer
+    # 所有经理和工程师都可以创建
     permission_classes = [IsAuthenticated, IsExamManager]
     
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'code', 'category', 'description']
     ordering = ['-created_at']
+    
+    def perform_create(self, serializer):
+        """自动设置created_by"""
+        serializer.save(created_by=self.request.user)
 
 
 class QuestionViewSet(ModelViewSet):
@@ -35,12 +41,17 @@ class QuestionViewSet(ModelViewSet):
     
     queryset = Question.objects.select_related('question_bank', 'created_by').all()
     serializer_class = QuestionSerializer
+    # 所有经理和工程师都可以创建
     permission_classes = [IsAuthenticated, IsExamManager]
     
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['question_bank', 'question_type', 'difficulty']
     search_fields = ['title', 'content']
     ordering = ['sort_order', 'id']
+    
+    def perform_create(self, serializer):
+        """自动设置created_by"""
+        serializer.save(created_by=self.request.user)
     
     @action(detail=False, methods=['post'])
     def import_questions(self, request):
@@ -69,12 +80,19 @@ class ExamViewSet(ModelViewSet):
         'course', 'question_bank', 'created_by'
     ).prefetch_related('participants')
     serializer_class = ExamSerializer
-    permission_classes = [IsAuthenticated, IsExamManager]
+    permission_classes = [IsAuthenticated]
     
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['exam_type', 'status', 'course', 'question_bank']
     search_fields = ['title', 'code', 'description']
     ordering = ['-created_at']
+    
+    def get_permissions(self):
+        """动态权限配置"""
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'publish', 'participants']:
+            # 所有经理和工程师都可以创建
+            return [IsAuthenticated(), IsExamManager()]
+        return [IsAuthenticated()]
     
     def get_serializer_class(self):
         """根据操作选择序列化器"""
@@ -86,12 +104,18 @@ class ExamViewSet(ModelViewSet):
         """根据权限过滤查询集"""
         user = self.request.user
         
-        # 管理员和考试管理员可以查看所有考试
-        if user.role.code in ['admin', 'hr_manager', 'exam_manager']:
+        # 所有经理和工程师可以查看所有考试
+        if user.role and user.role.code in [
+            'admin', 'hr_manager',
+            'training_manager', 'exam_manager',
+            'engineering_manager', 'dept_manager',
+            'me_engineer', 'te_engineer', 'technician',
+            'production_operator'
+        ]:
             return self.queryset
         
         # 讲师可以查看自己创建的和相关的考试
-        if user.role.code == 'instructor':
+        if user.role and user.role.code == 'instructor':
             return self.queryset.filter(
                 Q(created_by=user) | Q(course__created_by=user)
             )
@@ -100,6 +124,10 @@ class ExamViewSet(ModelViewSet):
         return self.queryset.filter(
             Q(status='published') | Q(participants=user)
         ).distinct()
+    
+    def perform_create(self, serializer):
+        """自动设置created_by"""
+        serializer.save(created_by=self.request.user)
     
     @action(detail=True, methods=['post'])
     def publish(self, request, pk=None):
@@ -128,12 +156,12 @@ class ExamViewSet(ModelViewSet):
         
         if serializer.is_valid():
             user_ids = serializer.validated_data['user_ids']
-            action = serializer.validated_data['action']
+            action_type = serializer.validated_data['action']
             
             from apps.users.models import User
             users = User.objects.filter(id__in=user_ids)
             
-            if action == 'add':
+            if action_type == 'add':
                 exam.participants.add(*users)
                 message = '参与人员添加成功'
             else:
@@ -152,7 +180,7 @@ class ExamViewSet(ModelViewSet):
             'errors': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
     
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def submit(self, request, pk=None):
         """提交考试"""
         exam = self.get_object()
@@ -164,6 +192,13 @@ class ExamViewSet(ModelViewSet):
                 'code': 400,
                 'message': '考试不在进行时间段内'
             }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 检查用户是否有权限参加
+        if not exam.participants.filter(id=user.id).exists():
+            return Response({
+                'code': 403,
+                'message': '您没有权限参加该考试'
+            }, status=status.HTTP_403_FORBIDDEN)
         
         # 获取或创建考试结果
         try:
@@ -210,7 +245,7 @@ class ExamViewSet(ModelViewSet):
             'errors': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
     
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
     def start(self, request, pk=None):
         """开始考试"""
         exam = self.get_object()
@@ -303,18 +338,24 @@ class ExamResultViewSet(ModelViewSet):
         """根据权限过滤查询集"""
         user = self.request.user
         
-        # 管理员和考试管理员可以查看所有成绩
-        if user.role.code in ['admin', 'hr_manager', 'exam_manager']:
+        # 所有经理和工程师可以查看所有成绩
+        if user.role and user.role.code in [
+            'admin', 'hr_manager',
+            'training_manager', 'exam_manager',
+            'engineering_manager', 'dept_manager',
+            'me_engineer', 'te_engineer', 'technician',
+            'production_operator'
+        ]:
             return self.queryset
         
         # 讲师可以查看相关考试成绩
-        if user.role.code == 'instructor':
+        if user.role and user.role.code == 'instructor':
             return self.queryset.filter(
                 Q(exam__course__created_by=user) | Q(exam__created_by=user)
             )
         
         # 部门经理可以查看本部门成绩
-        if user.role.code == 'dept_manager':
+        if user.role and user.role.code == 'dept_manager':
             return self.queryset.filter(
                 Q(user__department=user.department) | Q(user=user)
             )

@@ -20,7 +20,7 @@ class CompetencySerializer(serializers.ModelSerializer):
             'related_positions', 'related_courses', 'created_by', 'created_by_name',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
     
     def get_related_courses(self, obj):
         """获取关联课程"""
@@ -58,7 +58,7 @@ class CompetencyAssessmentSerializer(serializers.ModelSerializer):
             'evidence', 'assessor_comment', 'assessed_at', 'expires_at',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'assessor', 'assessed_at']
 
 
 class CertificateSerializer(serializers.ModelSerializer):
@@ -79,7 +79,7 @@ class CertificateSerializer(serializers.ModelSerializer):
             'issued_by', 'issued_by_name', 'certificate_file',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'certificate_no', 'verification_code', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'certificate_no', 'verification_code', 'created_at', 'updated_at', 'issued_by']
 
 
 class CertificateVerifySerializer(serializers.Serializer):

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""test_auth_fixed.py - 认证测试（无需修改，原文件正常）"""
+"""test_auth_fixed.py - 认证测试"""
 from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -15,11 +15,11 @@ class AuthTests(TestCase):
         """测试准备"""
         self.client = APIClient()
         
-        # 创建角色
+        # 创建与业务代码匹配的角色
         self.admin_role = Role.objects.create(
             name='系统管理员',
             code='admin',
-            permissions={'permissions': ['*']}
+            permissions={'all': True}
         )
         
         # 创建用户

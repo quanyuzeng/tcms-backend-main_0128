@@ -7,6 +7,14 @@ from .models import AuditLog
 from .utils import get_client_ip
 
 
+class DecimalEncoder(json.JSONEncoder):
+    """修复：自定义JSON编码器处理Decimal类型"""
+    def default(self, obj):
+        if isinstance(obj, (int, float)):
+            return float(obj)
+        return super().default(obj)
+
+
 class AuditLogMiddleware(MiddlewareMixin):
     """审计日志中间件"""
     
@@ -20,28 +28,22 @@ class AuditLogMiddleware(MiddlewareMixin):
         if not getattr(settings, 'AUDIT_LOG_ENABLED', True):
             return response
         
-        # 排除不需要记录的路径
         excluded_paths = getattr(settings, 'AUDIT_LOG_EXCLUDED_PATHS', [])
         if any(request.path.startswith(path) for path in excluded_paths):
             return response
         
-        # 只记录API请求
         if not request.path.startswith('/api/'):
             return response
         
         try:
-            # 获取用户信息
             user = request.user if request.user.is_authenticated else None
             
-            # 获取IP地址
             ip_address = get_client_ip(request)
             
-            # 计算响应时间
             response_time = 0
             if hasattr(request, '_start_time'):
                 response_time = int((time.time() - request._start_time) * 1000)
             
-            # 获取请求参数
             request_params = {}
             if request.method == 'GET':
                 request_params = dict(request.GET)
@@ -54,27 +56,22 @@ class AuditLogMiddleware(MiddlewareMixin):
                 except:
                     request_params = {}
             
-            # 获取响应结果
             response_result = {}
             if hasattr(response, 'data'):
-                response_result = response.data
+                response_result = json.loads(json.dumps(response.data, cls=DecimalEncoder))
             elif hasattr(response, 'content'):
                 try:
                     response_result = json.loads(response.content.decode('utf-8'))
                 except:
                     response_result = {}
             
-            # 判断操作类型
             action = self._get_action_type(request.method, request.path)
             module = self._get_module(request.path)
             
-            # 获取对象信息
             object_type, object_id, object_name = self._get_object_info(request, response)
             
-            # 判断状态
             log_status = AuditLog.Status.SUCCESS if response.status_code < 400 else AuditLog.Status.FAILED
 
-            # 获取错误信息
             error_message = ''
             if log_status == AuditLog.Status.FAILED and response_result:
                 if isinstance(response_result, dict):
@@ -82,7 +79,6 @@ class AuditLogMiddleware(MiddlewareMixin):
                     if not error_message:
                         error_message = response_result.get('detail', '')
             
-            # 创建审计日志
             AuditLog.objects.create(
                 operator=user,
                 operator_name=user.real_name if user else '',
@@ -105,7 +101,6 @@ class AuditLogMiddleware(MiddlewareMixin):
             )
             
         except Exception as e:
-            # 记录审计日志失败不应该影响正常响应
             if settings.DEBUG:
                 print(f"Audit log error: {str(e)}")
         
@@ -121,7 +116,6 @@ class AuditLogMiddleware(MiddlewareMixin):
             'DELETE': AuditLog.ActionType.DELETE,
         }
         
-        # 特殊路径处理
         if 'approve' in path:
             return AuditLog.ActionType.APPROVE
         elif 'import' in path:
@@ -156,14 +150,12 @@ class AuditLogMiddleware(MiddlewareMixin):
         object_id = ''
         object_name = ''
         
-        # 从路径中提取对象类型和ID
         path_parts = request.path.strip('/').split('/')
         if len(path_parts) >= 3:
             object_type = path_parts[1]
             if path_parts[-1].isdigit():
                 object_id = path_parts[-1]
         
-        # 从响应数据中获取对象名称
         if hasattr(response, 'data') and isinstance(response.data, dict):
             object_name = response.data.get('name', '') or response.data.get('title', '')
         

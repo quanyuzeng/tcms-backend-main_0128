@@ -286,34 +286,90 @@ class ExamResult(models.Model):
         return self.certificate_no
     
     def grade(self):
-        """评分"""
-        if self.answers and self.status == self.Status.SUBMITTED:
-            # 计算得分
-            total_score = 0
-            correct_count = 0
-            wrong_count = 0
+        """评分 - 修复版本（更健壮的答案匹配）"""
+        if not self.answers or self.status != self.Status.SUBMITTED:
+            return None
+        
+        total_score = 0.0
+        correct_count = 0
+        wrong_count = 0
+        
+        # 获取考试的所有题目
+        exam_questions = {str(q.id): q for q in self.exam.question_bank.questions.all()}
+        
+        for question_id, user_answer in self.answers.items():
+            # 跳过不在考试中的题目
+            if question_id not in exam_questions:
+                continue
             
-            for question_id, answer in self.answers.items():
-                try:
-                    question = Question.objects.get(id=question_id)
-                    if answer == question.correct_answer:
-                        total_score += float(question.score)
-                        correct_count += 1
-                    else:
-                        wrong_count += 1
-                except Question.DoesNotExist:
-                    continue
+            question = exam_questions[question_id]
             
-            self.score = total_score
-            self.correct_count = correct_count
-            self.wrong_count = wrong_count
-            self.is_passed = total_score >= float(self.exam.passing_score)
-            self.status = self.Status.GRADED
-            self.save()
+            # 提取用户答案（处理多种格式）
+            if isinstance(user_answer, list):
+                user_answer_list = [str(a).strip().upper() for a in user_answer if a is not None]
+            elif isinstance(user_answer, str):
+                user_answer_list = [user_answer.strip().upper()]
+            elif isinstance(user_answer, bool):
+                # 处理判断题
+                user_answer_list = ['TRUE' if user_answer else 'FALSE']
+            else:
+                user_answer_list = [str(user_answer).strip().upper()]
             
-            # 生成证书编号
-            if self.is_passed:
-                self.generate_certificate_no()
+            # 提取正确答案（从字典中提取）
+            correct_answer_raw = question.correct_answer
             
-            return self.score
-        return None
+            if isinstance(correct_answer_raw, dict):
+                correct_answer_list = correct_answer_raw.get('answer', [])
+            elif isinstance(correct_answer_raw, list):
+                correct_answer_list = correct_answer_raw
+            elif isinstance(correct_answer_raw, str):
+                correct_answer_list = [correct_answer_raw]
+            else:
+                correct_answer_list = [str(correct_answer_raw)]
+            
+            # 标准化正确答案
+            correct_answer_list = [str(a).strip().upper() for a in correct_answer_list if a is not None]
+            
+            # 处理判断题的特殊情况（true/false -> TRUE/FALSE）
+            if question.question_type == 'true_false':
+                user_answer_list = ['TRUE' if a in ['TRUE', '1', 'YES', '是'] else 'FALSE' for a in user_answer_list]
+                correct_answer_list = ['TRUE' if a in ['TRUE', '1', 'YES', '是'] else 'FALSE' for a in correct_answer_list]
+            
+            # 比较答案（排序后比较，适用于多选题）
+            user_answer_set = set(user_answer_list)
+            correct_answer_set = set(correct_answer_list)
+            
+            # 判断是否正确
+            is_correct = user_answer_set == correct_answer_set and len(user_answer_set) > 0
+            
+            if is_correct:
+                total_score += float(question.score)
+                correct_count += 1
+            else:
+                wrong_count += 1
+        
+        # 计算最终得分（基于考试总分）
+        if self.exam.total_score > 0 and exam_questions:
+            # 按正确率计算得分
+            max_possible_score = sum(float(q.score) for q in exam_questions.values())
+            if max_possible_score > 0:
+                score_percentage = total_score / max_possible_score
+                final_score = score_percentage * float(self.exam.total_score)
+            else:
+                final_score = 0
+        else:
+            final_score = total_score
+        
+        # 更新成绩
+        self.score = round(final_score, 2)
+        self.correct_count = correct_count
+        self.wrong_count = wrong_count
+        self.is_passed = final_score >= float(self.exam.passing_score)
+        self.status = self.Status.GRADED
+        self.save()
+        
+        # 生成证书编号（如果通过）
+        if self.is_passed:
+            self.generate_certificate_no()
+        
+        return self.score

@@ -1,7 +1,7 @@
 """User management views"""
 from rest_framework import status, filters
 from rest_framework.decorators import api_view, permission_classes, action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, SAFE_METHODS, BasePermission
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from django_filters.rest_framework import DjangoFilterBackend
@@ -12,12 +12,34 @@ from ..serializers import UserSerializer, UserCreateSerializer, UserUpdateSerial
 from ..permissions import IsAdminOrHR, IsSystemAdmin
 
 
+class IsAdminOrHROrReadOnly(BasePermission):
+    """
+    管理员或HR拥有写权限，所有认证用户有读权限
+    """
+    def has_permission(self, request, view):
+        # 首先检查是否已认证
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # 安全方法（GET, HEAD, OPTIONS）允许所有认证用户
+        if request.method in SAFE_METHODS:
+            return True
+        
+        # 非安全方法需要管理员或HR权限
+        return (
+            hasattr(request.user, 'role') and 
+            request.user.role and 
+            request.user.role.code in ['admin', 'hr_manager']
+        )
+
+
 class UserViewSet(ModelViewSet):
     """用户管理视图集"""
     
     queryset = User.objects.select_related('department', 'position', 'role').all()
     serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrHR]
+    # 所有认证用户可以读取，只有 admin/hr_manager 可以写入
+    permission_classes = [IsAuthenticated, IsAdminOrHROrReadOnly]
     
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['department', 'position', 'role', 'status']
@@ -38,15 +60,21 @@ class UserViewSet(ModelViewSet):
         user = self.request.user
         
         # 系统管理员可以查看所有用户
-        if user.role.code == 'admin':
+        if user.role and user.role.code == 'admin':
             return self.queryset
         
         # HR可以查看所有用户
-        if user.role.code == 'hr_manager':
+        if user.role and user.role.code == 'hr_manager':
             return self.queryset
         
-        # 部门经理只能查看本部门用户
-        if user.role.code == 'dept_manager':
+        # 部门经理可以查看本部门用户
+        if user.role and user.role.code == 'dept_manager':
+            return self.queryset.filter(
+                Q(department=user.department) | Q(id=user.id)
+            )
+        
+        # 工程经理可以查看本部门用户
+        if user.role and user.role.code == 'engineering_manager':
             return self.queryset.filter(
                 Q(department=user.department) | Q(id=user.id)
             )

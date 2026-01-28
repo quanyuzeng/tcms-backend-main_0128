@@ -54,7 +54,8 @@ class Department(models.Model):
     @property
     def employee_count(self):
         """部门员工数量"""
-        return self.users.filter(status='active').count()
+        from apps.users.models import User
+        return User.objects.filter(department=self, status='active').count()
     
     @property
     def level(self):
@@ -134,4 +135,5 @@ class Position(models.Model):
     @property
     def employee_count(self):
         """岗位员工数量"""
-        return self.users.filter(status='active').count()
+        from apps.users.models import User
+        return User.objects.filter(position=self, status='active').count()

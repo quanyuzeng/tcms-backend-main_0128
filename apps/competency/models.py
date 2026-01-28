@@ -154,6 +154,31 @@ class CompetencyAssessment(models.Model):
         self.status = self.Status.APPROVED
         self.assessed_at = timezone.now()
         self.save()
+    
+    # 修复：添加生成证书方法
+    def generate_certificate(self, issued_by=None, expiry_days=365):
+        """根据评估生成证书"""
+        if self.status != self.Status.APPROVED:
+            raise ValueError('只有已审批的评估才能生成证书')
+        
+        from .models import Certificate
+        
+        # 计算到期日期
+        issue_date = timezone.now().date()
+        expiry_date = issue_date + timezone.timedelta(days=expiry_days)
+        
+        # 创建证书
+        certificate = Certificate.objects.create(
+            name=f"{self.competency.name}证书",
+            user=self.user,
+            competency=self.competency,
+            assessment=self,
+            issue_date=issue_date,
+            expiry_date=expiry_date,
+            issued_by=issued_by or self.assessor
+        )
+        
+        return certificate
 
 
 class Certificate(models.Model):
