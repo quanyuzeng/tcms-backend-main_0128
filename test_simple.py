@@ -8,7 +8,6 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.development')
 django.setup()
 
 from django.test.utils import setup_test_environment
-from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
 from django.contrib.auth import get_user_model
@@ -85,12 +84,12 @@ def test_basic_functionality():
             defaults={'code': 'TECH'}
         )
         
-        # 测试创建课程
+        # 测试创建课程 - 直接创建对象，避免reverse
         course_data = {
             'code': 'TEST_COURSE_001',
             'title': '测试课程',
             'description': '测试课程描述',
-            'category': category.id,
+            'category': category,
             'course_type': 'online',
             'duration': 60,
             'credit': 1.0,

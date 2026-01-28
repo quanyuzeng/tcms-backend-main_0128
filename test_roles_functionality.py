@@ -1,16 +1,17 @@
 #!/usr/bin/env python
-"""Test script for new roles functionality"""
+"""
+test_roles_functionality_fixed.py
+角色功能测试脚本（修复版）
+"""
 import os
 import sys
 import django
 
-# 设置Django环境
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.development')
 django.setup()
 
 from django.test.utils import setup_test_environment
 from django.test import TestCase
-from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
 from django.contrib.auth import get_user_model
@@ -25,7 +26,7 @@ from apps.competency.models import Competency, Certificate
 
 
 def test_all_roles():
-    """测试所有新角色的功能"""
+    """测试所有新角色的功能（使用硬编码URL）"""
     print("=" * 60)
     print("测试所有角色功能")
     print("=" * 60)
@@ -33,13 +34,13 @@ def test_all_roles():
     client = APIClient()
     
     # 创建部门
-    eng_dept = Department.objects.create(name='工程部', code='ENG', status='active')
-    prod_dept = Department.objects.create(name='生产部', code='PROD', status='active')
+    eng_dept, _ = Department.objects.get_or_create(name='工程部', defaults={'code': 'ENG', 'status': 'active'})
+    prod_dept, _ = Department.objects.get_or_create(name='生产部', defaults={'code': 'PROD', 'status': 'active'})
     
     # 创建岗位
-    me_position = Position.objects.create(name='ME工程师', code='ME', level='mid', status='active')
-    te_position = Position.objects.create(name='TE工程师', code='TE', level='mid', status='active')
-    technician_position = Position.objects.create(name='技术员', code='TECH', level='junior', status='active')
+    me_position, _ = Position.objects.get_or_create(name='ME工程师', defaults={'code': 'ME', 'level': 'mid', 'status': 'active'})
+    te_position, _ = Position.objects.get_or_create(name='TE工程师', defaults={'code': 'TE', 'level': 'mid', 'status': 'active'})
+    technician_position, _ = Position.objects.get_or_create(name='技术员', defaults={'code': 'TECH', 'level': 'junior', 'status': 'active'})
     
     # 创建角色
     roles_data = [
@@ -84,8 +85,8 @@ def test_all_roles():
         )[0]
     
     # 创建测试数据
-    category = CourseCategory.objects.get_or_create(name='技术培训', code='TECH')[0]
-    course = Course.objects.get_or_create(
+    category, _ = CourseCategory.objects.get_or_create(name='技术培训', defaults={'code': 'TECH'})
+    course, _ = Course.objects.get_or_create(
         code='COURSE001',
         defaults={
             'title': '设备操作培训',
@@ -95,14 +96,14 @@ def test_all_roles():
             'status': 'published',
             'created_by': users['admin']
         }
-    )[0]
+    )
     
-    question_bank = QuestionBank.objects.get_or_create(
+    question_bank, _ = QuestionBank.objects.get_or_create(
         name='设备操作题库',
         defaults={'code': 'EQUIP_BANK', 'created_by': users['admin']}
-    )[0]
+    )
     
-    question = Question.objects.get_or_create(
+    question, _ = Question.objects.get_or_create(
         title='设备启动前需要检查什么？',
         defaults={
             'question_bank': question_bank,
@@ -112,9 +113,9 @@ def test_all_roles():
             'score': 2.0,
             'created_by': users['admin']
         }
-    )[0]
+    )
     
-    exam = Exam.objects.get_or_create(
+    exam, _ = Exam.objects.get_or_create(
         code='EXAM001',
         defaults={
             'title': '设备操作考试',
@@ -128,10 +129,10 @@ def test_all_roles():
             'status': 'published',
             'created_by': users['admin']
         }
-    )[0]
+    )
     exam.participants.add(users['me_eng'], users['te_eng'], users['technician'], users['operator'])
     
-    competency = Competency.objects.get_or_create(
+    competency, _ = Competency.objects.get_or_create(
         name='设备操作',
         defaults={
             'code': 'EQUIP_OP',
@@ -140,7 +141,7 @@ def test_all_roles():
             'required': True,
             'created_by': users['admin']
         }
-    )[0]
+    )
     
     test_results = {}
     
@@ -191,8 +192,8 @@ def test_all_roles():
         passed_tests = 0
         total_tests = len(role_tests)
         
-        # 测试查看课程
-        url = reverse('course-list')
+        # 测试查看课程 - 使用硬编码URL
+        url = '/api/training/courses/'
         response = client.get(url)
         actual = response.status_code == status.HTTP_200_OK
         expected = role_tests['view_courses']
@@ -202,8 +203,8 @@ def test_all_roles():
         else:
             print(f"❌ 查看课程: 预期{expected}, 实际{actual}")
         
-        # 测试报名课程
-        url = reverse('course-enroll', kwargs={'pk': course.id})
+        # 测试报名课程 - 使用硬编码URL
+        url = f'/api/training/courses/{course.id}/enroll/'
         response = client.post(url)
         actual = response.status_code == status.HTTP_201_CREATED
         expected = role_tests['enroll_courses']
@@ -214,8 +215,8 @@ def test_all_roles():
         else:
             print(f"❌ 报名课程: 预期{expected}, 实际{actual}")
         
-        # 测试查看考试
-        url = reverse('exam-list')
+        # 测试查看考试 - 使用硬编码URL
+        url = '/api/examination/exams/'
         response = client.get(url)
         actual = response.status_code == status.HTTP_200_OK
         expected = role_tests['view_exams']
@@ -225,8 +226,8 @@ def test_all_roles():
         else:
             print(f"❌ 查看考试: 预期{expected}, 实际{actual}")
         
-        # 测试开始考试
-        url = reverse('exam-start', kwargs={'pk': exam.id})
+        # 测试开始考试 - 使用硬编码URL
+        url = f'/api/examination/exams/{exam.id}/start/'
         response = client.get(url)
         actual = response.status_code == status.HTTP_200_OK
         expected = role_tests['take_exams']
@@ -237,8 +238,8 @@ def test_all_roles():
         else:
             print(f"❌ 开始考试: 预期{expected}, 实际{actual}")
         
-        # 测试查看培训记录
-        url = reverse('trainingrecord-list')
+        # 测试查看培训记录 - 使用硬编码URL
+        url = '/api/training/records/'
         response = client.get(url)
         actual = response.status_code == status.HTTP_200_OK
         expected = role_tests['view_training_records']
@@ -248,8 +249,8 @@ def test_all_roles():
         else:
             print(f"❌ 查看培训记录: 预期{expected}, 实际{actual}")
         
-        # 测试创建课程（应该失败）
-        url = reverse('course-list')
+        # 测试创建课程（应该失败） - 使用硬编码URL
+        url = '/api/training/courses/'
         data = {
             'code': f'TEST_{username}',
             'title': f'测试课程_{username}',
@@ -266,8 +267,8 @@ def test_all_roles():
         else:
             print(f"❌ 创建课程权限: 预期{expected}, 实际{actual}")
         
-        # 测试创建用户（应该失败）
-        url = reverse('user-list')
+        # 测试创建用户（应该失败） - 使用硬编码URL
+        url = '/api/users/'
         data = {
             'username': f'test_{username}',
             'password': 'testpass',
@@ -294,7 +295,7 @@ def test_all_roles():
         
         print(f"测试结果: {passed_tests}/{total_tests} ({(passed_tests/total_tests)*100:.1f}%)")
     
-    # 测试管理员
+    # 测试管理员 - 使用硬编码URL
     print(f"\n测试角色: 系统管理员")
     print("-" * 40)
     
@@ -302,8 +303,8 @@ def test_all_roles():
     client = APIClient()
     client.force_authenticate(user=admin)
     
-    # 管理员应该可以创建用户
-    url = reverse('user-list')
+    # 管理员应该可以创建用户 - 使用硬编码URL
+    url = '/api/users/'
     data = {
         'username': 'new_admin_test',
         'password': 'testpass123',

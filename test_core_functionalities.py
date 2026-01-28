@@ -1,15 +1,16 @@
 #!/usr/bin/env python
-"""Core functionality test script for TCMS Backend"""
+"""
+test_core_functionalities_fixed.py
+核心功能测试脚本（修复版）
+"""
 import os
 import sys
 import django
 
-# 设置Django环境
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.development')
 django.setup()
 
 from django.test.utils import setup_test_environment
-from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
 from django.contrib.auth import get_user_model
@@ -23,7 +24,6 @@ from apps.examination.models import QuestionBank, Question, Exam, ExamResult
 from apps.competency.models import Competency, CompetencyAssessment, Certificate
 
 
-# 全局变量
 client = APIClient()
 test_results = {
     'passed': 0,
@@ -53,7 +53,6 @@ def run_core_tests():
     print("="*60)
     print(f"测试时间: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
-    # 设置测试环境
     setup_test_environment()
     
     try:
@@ -88,22 +87,22 @@ def run_core_tests():
         else:
             log_test("管理员用户已存在", True)
         
-        # 3. 测试认证
+        # 3. 测试认证 - 使用硬编码URL
         print("\n3. 测试认证系统")
-        url = reverse('token_obtain_pair')
+        url = '/api/auth/login/'
         response = client.post(url, {
             'username': 'admin_test',
             'password': 'admin123456'
         }, format='json')
         
         if response.status_code == status.HTTP_200_OK:
-            token = response.data['access']
+            token = response.data.get('data', {}).get('access')
             client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
             log_test("用户登录认证", True, "获取JWT Token成功")
         else:
             log_test("用户登录认证", False, f"状态码: {response.status_code}")
         
-        # 4. 测试课程管理
+        # 4. 测试课程管理 - 使用硬编码URL
         print("\n4. 测试课程管理")
         
         # 创建课程分类
@@ -112,8 +111,8 @@ def run_core_tests():
             defaults={'code': 'TECH'}
         )
         
-        # 测试创建课程
-        url = reverse('course-list')
+        # 测试创建课程 - 使用硬编码URL
+        url = '/api/training/courses/'
         course_data = {
             'code': 'TEST_COURSE_001',
             'title': '测试课程',
@@ -130,8 +129,8 @@ def run_core_tests():
             course_id = response.data['data']['id']
             log_test("创建课程", True, f"课程ID: {course_id}")
             
-            # 测试发布课程
-            publish_url = reverse('course-publish', kwargs={'pk': course_id})
+            # 测试发布课程 - 使用硬编码URL
+            publish_url = f'/api/training/courses/{course_id}/publish/'
             response = client.post(publish_url)
             if response.status_code == status.HTTP_200_OK:
                 log_test("发布课程", True)
@@ -140,7 +139,7 @@ def run_core_tests():
         else:
             log_test("创建课程", False, f"状态码: {response.status_code}")
         
-        # 5. 测试考试管理
+        # 5. 测试考试管理 - 使用硬编码URL
         print("\n5. 测试考试管理")
         
         # 创建题库
@@ -149,8 +148,8 @@ def run_core_tests():
             defaults={'code': 'TEST_BANK'}
         )
         
-        # 创建考试
-        url = reverse('exam-list')
+        # 创建考试 - 使用硬编码URL
+        url = '/api/examination/exams/'
         exam_data = {
             'code': 'TEST_EXAM_001',
             'title': '测试考试',
@@ -169,8 +168,8 @@ def run_core_tests():
             exam_id = response.data['data']['id']
             log_test("创建考试", True, f"考试ID: {exam_id}")
             
-            # 测试发布考试
-            publish_url = reverse('exam-publish', kwargs={'pk': exam_id})
+            # 测试发布考试 - 使用硬编码URL
+            publish_url = f'/api/examination/exams/{exam_id}/publish/'
             response = client.post(publish_url)
             if response.status_code == status.HTTP_200_OK:
                 log_test("发布考试", True)
@@ -204,23 +203,23 @@ def run_core_tests():
         if created or certificate:
             log_test("创建证书", True, f"证书编号: {certificate.certificate_no}")
             
-            # 测试验证证书
-            url = reverse('certificate-verify')
+            # 测试验证证书 - 使用硬编码URL
+            url = '/api/competency/certificates/verify/'
             response = client.post(url, {
                 'verification_code': certificate.verification_code
             }, format='json')
             
             if response.status_code == status.HTTP_200_OK:
-                is_valid = response.data['data']['is_valid']
+                is_valid = response.data.get('data', {}).get('is_valid')
                 log_test("验证证书", is_valid, f"验证码: {certificate.verification_code}")
             else:
                 log_test("验证证书", False, f"状态码: {response.status_code}")
         
-        # 7. 测试导入导出模板
+        # 7. 测试导入导出模板 - 使用硬编码URL
         print("\n7. 测试导入导出功能")
         
         # 测试下载课程导入模板
-        url = reverse('course-import-template')
+        url = '/api/training/courses/import_template/'
         response = client.get(url)
         if response.status_code == status.HTTP_200_OK:
             log_test("下载课程导入模板", True)
@@ -228,7 +227,7 @@ def run_core_tests():
             log_test("下载课程导入模板", False, f"状态码: {response.status_code}")
         
         # 测试导出课程
-        url = reverse('course-export')
+        url = '/api/training/courses/export/'
         response = client.get(url)
         if response.status_code == status.HTTP_200_OK:
             log_test("导出课程", True)

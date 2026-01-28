@@ -1,0 +1,47 @@
+{
+  "project": "TCMS Backend",
+  "version": "1.0.0",
+  "test_date": "2026-01-28 14:38:42",
+  "summary": {
+    "total_modules": 6,
+    "passed": 0,
+    "failed": 6,
+    "errors": 0
+  },
+  "modules": {
+    "tests.test_auth": {
+      "status": "FAILED"
+    },
+    "tests.test_user_management": {
+      "status": "FAILED"
+    },
+    "tests.test_training": {
+      "status": "FAILED"
+    },
+    "tests.test_examination": {
+      "status": "FAILED"
+    },
+    "tests.test_competency": {
+      "status": "FAILED"
+    },
+    "tests.test_roles": {
+      "status": "FAILED"
+    }
+  },
+  "coverage": {
+    "auth": "用户认证模块",
+    "user_management": "用户管理模块",
+    "training": "培训管理模块",
+    "examination": "考试管理模块",
+    "competency": "能力管理模块",
+    "roles": "角色权限模块"
+  },
+  "roles_tested": [
+    "系统管理员 (admin)",
+    "工程经理 (engineering_manager)",
+    "ME工程师 (me_engineer)",
+    "TE工程师 (te_engineer)",
+    "技术员 (technician)",
+    "生产操作员 (production_operator)"
+  ]
+}

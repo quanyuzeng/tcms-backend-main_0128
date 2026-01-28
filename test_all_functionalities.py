@@ -1,15 +1,16 @@
 #!/usr/bin/env python
-"""Complete functionality test script for TCMS Backend"""
+"""
+test_all_functionalities_fixed.py
+完整功能测试脚本（修复版）
+"""
 import os
 import sys
 import django
 
-# 设置Django环境
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.development')
 django.setup()
 
 from django.test.utils import setup_test_environment
-from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
 from django.contrib.auth import get_user_model
@@ -35,7 +36,6 @@ TEST_CONFIG = {
     'test_exams_count': 2,
 }
 
-# 全局变量
 client = APIClient()
 test_results = {
     'passed': 0,
@@ -103,7 +103,7 @@ def create_test_data():
         positions[pos_data['code']] = pos
         print(f"岗位: {pos.name} ({'创建' if created else '已存在'})")
     
-    # 创建角色（如果还不存在）
+    # 创建角色
     roles_data = [
         ('admin', '系统管理员'),
         ('engineering_manager', '工程经理'),
@@ -146,15 +146,15 @@ def test_admin_authentication():
         admin_user.save()
         print("创建管理员用户")
     
-    # 测试登录
-    url = reverse('token_obtain_pair')
+    # 测试登录 - 使用硬编码URL
+    url = '/api/auth/login/'
     response = client.post(url, {
         'username': TEST_CONFIG['admin_username'],
         'password': TEST_CONFIG['admin_password']
     }, format='json')
     
     if response.status_code == status.HTTP_200_OK:
-        token = response.data['access']
+        token = response.data['data']['access']
         client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
         log_test("管理员登录", True, "登录成功，获取Token")
         return True
@@ -169,14 +169,15 @@ def test_role_management():
     print("测试角色管理")
     print("="*60)
     
-    # 测试获取角色列表
-    url = reverse('user:role-list')
+    # 测试获取角色列表 - 使用硬编码URL
+    url = '/api/users/roles/'
     response = client.get(url)
     
     if response.status_code == status.HTTP_200_OK:
-        roles = response.data
+        data = response.data
+        results = data.get('data', [])
         expected_roles = ['admin', 'engineering_manager', 'me_engineer', 'te_engineer', 'technician', 'production_operator']
-        found_roles = [role['code'] for role in roles.get('data', {}).get('results', [])]
+        found_roles = [role['code'] for role in results] if isinstance(results, list) else []
         
         all_present = all(role in found_roles for role in expected_roles)
         log_test("角色列表", all_present, f"期望角色: {expected_roles}, 实际: {found_roles}")
@@ -190,8 +191,8 @@ def test_user_creation():
     print("测试用户创建")
     print("="*60)
     
-    # 测试创建ME工程师
-    url = reverse('user:user-list')
+    # 测试创建ME工程师 - 使用硬编码URL
+    url = '/api/users/'
     user_data = {
         'username': 'me_eng_test',
         'password': 'test123456',
@@ -250,8 +251,8 @@ def test_course_management():
         defaults={'code': 'TECH'}
     )
     
-    # 测试创建课程
-    url = reverse('training:course-list')
+    # 测试创建课程 - 使用硬编码URL
+    url = '/api/training/courses/'
     course_data = {
         'code': 'COURSE001',
         'title': '设备操作培训',
@@ -274,10 +275,11 @@ def test_course_management():
         # 测试获取课程列表
         response = client.get(url)
         if response.status_code == status.HTTP_200_OK:
-            log_test("获取课程列表", True, f"共{response.data['data']['count']}门课程")
+            count = response.data.get('data', {}).get('count', 0)
+            log_test("获取课程列表", True, f"共{count}门课程")
         
-        # 测试发布课程
-        publish_url = reverse('training:course-publish', kwargs={'pk': course_id})
+        # 测试发布课程 - 使用硬编码URL
+        publish_url = f'/api/training/courses/{course_id}/publish/'
         response = client.post(publish_url)
         if response.status_code == status.HTTP_200_OK:
             log_test("发布课程", True)
@@ -321,8 +323,8 @@ def test_exam_management():
         question = question_serializer.save()
         log_test("创建题目", True, f"题目ID: {question.id}")
     
-    # 创建考试
-    url = reverse('examination:exam-list')
+    # 创建考试 - 使用硬编码URL
+    url = '/api/examination/exams/'
     exam_data = {
         'code': 'EXAM001',
         'title': '设备操作考试',
@@ -343,8 +345,8 @@ def test_exam_management():
         exam_id = response.data['data']['id']
         log_test("创建考试", True, f"考试ID: {exam_id}")
         
-        # 测试发布考试
-        publish_url = reverse('examination:exam-publish', kwargs={'pk': exam_id})
+        # 测试发布考试 - 使用硬编码URL
+        publish_url = f'/api/examination/exams/{exam_id}/publish/'
         response = client.post(publish_url)
         if response.status_code == status.HTTP_200_OK:
             log_test("发布考试", True)
@@ -372,8 +374,8 @@ def test_certificate_generation():
     exam_result.is_passed = True
     exam_result.save()
     
-    # 生成证书
-    url = reverse('competency:certificate-generate')
+    # 生成证书 - 使用硬编码URL
+    url = '/api/competency/certificates/generate/'
     cert_data = {
         'exam_result_id': exam_result.id,
         'expiry_date': (timezone.now() + timedelta(days=365)).date()
@@ -385,15 +387,15 @@ def test_certificate_generation():
         cert_id = response.data['data']['id']
         log_test("生成证书", True, f"证书ID: {cert_id}")
         
-        # 测试验证证书
+        # 测试验证证书 - 使用硬编码URL
         certificate = Certificate.objects.get(id=cert_id)
-        verify_url = reverse('competency:certificate-verify')
+        verify_url = '/api/competency/certificates/verify/'
         response = client.post(verify_url, {
             'verification_code': certificate.verification_code
         }, format='json')
         
         if response.status_code == status.HTTP_200_OK:
-            is_valid = response.data['data']['is_valid']
+            is_valid = response.data.get('data', {}).get('is_valid')
             log_test("验证证书", is_valid, f"验证码: {certificate.verification_code}")
         
         return cert_id
@@ -408,8 +410,8 @@ def test_import_export():
     print("测试导入导出功能")
     print("="*60)
     
-    # 测试下载课程导入模板
-    url = reverse('training:course-import-template')
+    # 测试下载课程导入模板 - 使用硬编码URL
+    url = '/api/training/courses/import_template/'
     response = client.get(url)
     
     if response.status_code == status.HTTP_200_OK:
@@ -417,8 +419,8 @@ def test_import_export():
     else:
         log_test("下载课程导入模板", False, f"状态码: {response.status_code}")
     
-    # 测试导出课程
-    url = reverse('training:course-export')
+    # 测试导出课程 - 使用硬编码URL
+    url = '/api/training/courses/export/'
     response = client.get(url)
     
     if response.status_code == status.HTTP_200_OK:
@@ -426,8 +428,8 @@ def test_import_export():
     else:
         log_test("导出课程", False, f"状态码: {response.status_code}")
     
-    # 测试下载题目导入模板
-    url = reverse('examination:question-import-template')
+    # 测试下载题目导入模板 - 使用硬编码URL
+    url = '/api/examination/questions/import_template/'
     response = client.get(url)
     
     if response.status_code == status.HTTP_200_OK:
@@ -435,8 +437,8 @@ def test_import_export():
     else:
         log_test("下载题目导入模板", False, f"状态码: {response.status_code}")
     
-    # 测试导出题目
-    url = reverse('examination:question-export')
+    # 测试导出题目 - 使用硬编码URL
+    url = '/api/examination/questions/export/'
     response = client.get(url)
     
     if response.status_code == status.HTTP_200_OK:
@@ -454,15 +456,15 @@ def test_role_permissions():
     # 测试不同角色的权限
     role_tests = [
         ('me_eng_test', [
-            ('course-list', 'get', True),
-            ('course-list', 'post', False),
-            ('exam-list', 'get', True),
-            ('exam-list', 'post', False),
+            ('/api/training/courses/', 'get', True),
+            ('/api/training/courses/', 'post', False),
+            ('/api/examination/exams/', 'get', True),
+            ('/api/examination/exams/', 'post', False),
         ]),
         ('eng_manager_test', [
-            ('course-list', 'get', True),
-            ('course-list', 'post', False),
-            ('trainingplan-list', 'get', True),
+            ('/api/training/courses/', 'get', True),
+            ('/api/training/courses/', 'post', False),
+            ('/api/training/plans/', 'get', True),
         ]),
     ]
     
@@ -471,8 +473,7 @@ def test_role_permissions():
             user = get_user_model().objects.get(username=username)
             client.force_authenticate(user=user)
             
-            for url_name, method, expected in permissions:
-                url = reverse(f'{url_name}')
+            for url, method, expected in permissions:
                 if method == 'get':
                     response = client.get(url)
                 else:
@@ -480,7 +481,7 @@ def test_role_permissions():
                 
                 actual = response.status_code != status.HTTP_403_FORBIDDEN
                 passed = actual == expected
-                log_test(f"{username} {url_name} {method}", passed, 
+                log_test(f"{username} {url} {method}", passed, 
                         f"期望: {expected}, 实际: {actual}, 状态码: {response.status_code}")
         except Exception as e:
             log_test(f"测试{username}权限", False, f"错误: {str(e)}")
@@ -497,30 +498,31 @@ def test_training_workflow():
     client.force_authenticate(user=user)
     
     try:
-        # 1. 查看课程
-        url = reverse('training:course-list')
+        # 1. 查看课程 - 使用硬编码URL
+        url = '/api/training/courses/'
         response = client.get(url)
         if response.status_code == status.HTTP_200_OK:
-            courses = response.data['data']['results']
-            log_test("查看课程", True, f"获取{courses}门课程")
+            results = response.data.get('data', {}).get('results', [])
+            log_test("查看课程", True, f"获取{len(results)}门课程")
             
-            if courses:
-                course_id = courses[0]['id']
+            if results:
+                course_id = results[0]['id']
                 
-                # 2. 报名课程
-                enroll_url = reverse('training:course-enroll', kwargs={'pk': course_id})
+                # 2. 报名课程 - 使用硬编码URL
+                enroll_url = f'/api/training/courses/{course_id}/enroll/'
                 response = client.post(enroll_url)
                 if response.status_code == status.HTTP_201_CREATED:
                     log_test("报名课程", True)
                     
-                    # 3. 查看培训记录
-                    records_url = reverse('training:trainingrecord-list')
+                    # 3. 查看培训记录 - 使用硬编码URL
+                    records_url = '/api/training/records/'
                     response = client.get(records_url)
                     if response.status_code == status.HTTP_200_OK:
-                        log_test("查看培训记录", True, f"共{response.data['data']['count']}条记录")
+                        count = response.data.get('data', {}).get('count', 0)
+                        log_test("查看培训记录", True, f"共{count}条记录")
                         
                         # 4. 完成培训
-                        if response.data['data']['results']:
+                        if response.data.get('data', {}).get('results'):
                             record_id = response.data['data']['results'][0]['id']
                             record = TrainingRecord.objects.get(id=record_id)
                             record.status = 'completed'
@@ -545,31 +547,31 @@ def test_exam_workflow():
     client.force_authenticate(user=user)
     
     try:
-        # 1. 查看考试
-        url = reverse('examination:exam-list')
+        # 1. 查看考试 - 使用硬编码URL
+        url = '/api/examination/exams/'
         response = client.get(url)
         if response.status_code == status.HTTP_200_OK:
-            exams = response.data['data']['results']
+            exams = response.data.get('data', {}).get('results', [])
             log_test("查看考试", True, f"获取{len(exams)}场考试")
             
             if exams:
                 exam_id = exams[0]['id']
                 
-                # 2. 开始考试
-                start_url = reverse('examination:exam-start', kwargs={'pk': exam_id})
+                # 2. 开始考试 - 使用硬编码URL
+                start_url = f'/api/examination/exams/{exam_id}/start/'
                 response = client.get(start_url)
                 if response.status_code == status.HTTP_200_OK:
                     log_test("开始考试", True)
                     
                     # 获取题目
-                    questions = response.data['data']['questions']
+                    questions = response.data.get('data', {}).get('questions', [])
                     
-                    # 3. 提交考试
-                    submit_url = reverse('examination:exam-submit', kwargs={'pk': exam_id})
+                    # 3. 提交考试 - 使用硬编码URL
+                    submit_url = f'/api/examination/exams/{exam_id}/submit/'
                     answers = {}
                     for q in questions:
                         if q['question_type'] == 'single_choice':
-                            answers[str(q['id'])] = ['C']  # 假设C是正确答案
+                            answers[str(q['id'])] = ['C']
                         elif q['question_type'] == 'judgment':
                             answers[str(q['id'])] = ['true']
                     
@@ -579,13 +581,15 @@ def test_exam_workflow():
                     }
                     response = client.post(submit_url, exam_data, format='json')
                     if response.status_code == status.HTTP_200_OK:
-                        log_test("提交考试", True, f"得分: {response.data['data']['score']}")
+                        score = response.data.get('data', {}).get('score', 0)
+                        log_test("提交考试", True, f"得分: {score}")
                         
-                        # 4. 查看成绩
-                        results_url = reverse('examresult-list')
+                        # 4. 查看成绩 - 使用硬编码URL
+                        results_url = '/api/examination/results/'
                         response = client.get(results_url)
                         if response.status_code == status.HTTP_200_OK:
-                            log_test("查看成绩", True, f"共{response.data['data']['count']}条记录")
+                            count = response.data.get('data', {}).get('count', 0)
+                            log_test("查看成绩", True, f"共{count}条记录")
         
     except Exception as e:
         log_test("考试流程", False, f"错误: {str(e)}")
@@ -641,14 +645,14 @@ def test_certificate_export():
         log_test("证书信息", True, f"证书编号: {certificate.certificate_no}")
         log_test("证书验证码", True, f"验证码: {certificate.verification_code}")
         
-        # 测试验证功能
-        url = reverse('certificate-verify')
+        # 测试验证功能 - 使用硬编码URL
+        url = '/api/competency/certificates/verify/'
         response = client.post(url, {
             'verification_code': certificate.verification_code
         }, format='json')
         
         if response.status_code == status.HTTP_200_OK:
-            is_valid = response.data['data']['is_valid']
+            is_valid = response.data.get('data', {}).get('is_valid', False)
             log_test("证书验证", is_valid, "验证功能正常")
         else:
             log_test("证书验证", False, f"状态码: {response.status_code}")
@@ -664,7 +668,6 @@ def run_all_tests():
     print(f"测试时间: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"测试环境: {os.environ.get('DJANGO_SETTINGS_MODULE')}")
     
-    # 设置测试环境
     setup_test_environment()
     
     try:
