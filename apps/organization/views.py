@@ -19,17 +19,19 @@ class DepartmentViewSet(ModelViewSet):
     
     queryset = Department.objects.select_related('manager').all()
     serializer_class = DepartmentSerializer
+    # 修复认证问题：必须显式声明，即使settings中有全局配置
     permission_classes = [IsAuthenticated, IsAdminOrHR]
     
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['status', 'parent']
+    # 修复筛选问题：添加 'id' 精确匹配 + 'status', 'parent'
+    filterset_fields = ['id', 'status', 'parent']
     search_fields = ['name', 'code', 'description']
+    # 使用DRF默认search参数名（前端需同步改为search）
     ordering = ['name']
     
     @action(detail=False, methods=['get'])
     def tree(self, request):
-        """获取部门树形结构"""
-        # 获取顶级部门
+        """获取部门树形结构（仅顶级部门）"""
         top_departments = self.queryset.filter(parent=None, status='active')
         serializer = DepartmentTreeSerializer(top_departments, many=True)
         
@@ -40,10 +42,9 @@ class DepartmentViewSet(ModelViewSet):
         })
     
     def list(self, request, *args, **kwargs):
-        """获取部门列表"""
+        """获取部门列表（支持过滤/搜索/分页）"""
         queryset = self.filter_queryset(self.get_queryset())
         
-        # 分页
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
@@ -68,7 +69,7 @@ class PositionViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated, IsAdminOrHR]
     
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['status', 'level', 'department']
+    filterset_fields = ['id', 'status', 'level', 'department']
     search_fields = ['name', 'code', 'responsibilities', 'requirements']
     ordering = ['name']
     
@@ -79,10 +80,9 @@ class PositionViewSet(ModelViewSet):
         return self.serializer_class
     
     def list(self, request, *args, **kwargs):
-        """获取岗位列表"""
+        """获取岗位列表（支持过滤/搜索/分页）"""
         queryset = self.filter_queryset(self.get_queryset())
         
-        # 分页
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
