@@ -1,4 +1,18 @@
-"""Training views"""
+
+# # # 修复 training/views.py - 移除无效的 prefetch_related
+# # fixed_training_views_v2 = 
+# # '''
+
+# # with open('/mnt/kimi/output/fixed_training_views_v2.py', 'w', encoding='utf-8') as f:
+# #     f.write(fixed_training_views_v2)
+
+# # print("✅ 修复后的 training/views.py v2 已创建")
+# # print("\n主要修复:")
+# # print("1. 移除了 Course.queryset 中无效的 'target_departments' prefetch_related")
+# # print("2. 保留了其他有效的 prefetch_related('prerequisites')")
+
+
+# '''"""Training views"""
 from rest_framework import status, filters
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -24,16 +38,81 @@ class CourseCategoryViewSet(ModelViewSet):
     
     queryset = CourseCategory.objects.all()
     serializer_class = CourseCategorySerializer
-    # 所有经理和工程师都可以创建
     permission_classes = [IsAuthenticated, IsTrainingManager]
     
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'code', 'description']
     ordering = ['sort_order', 'name']
     
+    def list(self, request, *args, **kwargs):
+        """获取分类列表（统一响应格式）"""
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'code': 200,
+            'message': 'Success',
+            'data': {
+                'count': queryset.count(),
+                'results': serializer.data
+            }
+        })
+    
+    def create(self, request, *args, **kwargs):
+        """创建分类（统一响应格式）"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response({
+            'code': 201,
+            'message': '创建成功',
+            'data': serializer.data
+        }, status=status.HTTP_201_CREATED, headers=headers)
+    
+    def retrieve(self, request, *args, **kwargs):
+        """获取分类详情（统一响应格式）"""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response({
+            'code': 200,
+            'message': 'Success',
+            'data': serializer.data
+        })
+    
+    def update(self, request, *args, **kwargs):
+        """更新分类（统一响应格式）"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response({
+            'code': 200,
+            'message': '更新成功',
+            'data': serializer.data
+        })
+    
+    def destroy(self, request, *args, **kwargs):
+        """删除分类（统一响应格式）"""
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response({
+            'code': 204,
+            'message': '删除成功'
+        }, status=status.HTTP_204_NO_CONTENT)
+    
     def perform_create(self, serializer):
-        """自动设置created_by"""
-        serializer.save(created_by=self.request.user)
+        """自动设置created_by - 修复：先创建再更新"""
+        instance = serializer.save()
+        if hasattr(instance, 'created_by'):
+            instance.created_by = self.request.user
+            instance.save()
     
     @action(detail=False, methods=['get'])
     def tree(self, request):
@@ -51,6 +130,7 @@ class CourseCategoryViewSet(ModelViewSet):
 class CourseViewSet(ModelViewSet):
     """课程管理视图集"""
     
+    # 修复：移除无效的 target_departments prefetch
     queryset = Course.objects.select_related('category', 'created_by').prefetch_related('prerequisites')
     serializer_class = CourseSerializer
     permission_classes = [IsAuthenticated]
@@ -64,7 +144,6 @@ class CourseViewSet(ModelViewSet):
     def get_permissions(self):
         """动态权限配置"""
         if self.action in ['create', 'update', 'partial_update', 'destroy', 'publish']:
-            # 所有经理和工程师都可以创建课程
             return [IsAuthenticated(), IsTrainingManager()]
         return [IsAuthenticated()]
     
@@ -90,6 +169,69 @@ class CourseViewSet(ModelViewSet):
         
         # 其他用户只能查看已发布的课程
         return self.queryset.filter(status='published')
+    
+    def list(self, request, *args, **kwargs):
+        """获取课程列表（统一响应格式）"""
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'code': 200,
+            'message': 'Success',
+            'data': {
+                'count': queryset.count(),
+                'results': serializer.data
+            }
+        })
+    
+    def create(self, request, *args, **kwargs):
+        """创建课程（统一响应格式）"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response({
+            'code': 201,
+            'message': '创建成功',
+            'data': serializer.data
+        }, status=status.HTTP_201_CREATED, headers=headers)
+    
+    def retrieve(self, request, *args, **kwargs):
+        """获取课程详情（统一响应格式）"""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response({
+            'code': 200,
+            'message': 'Success',
+            'data': serializer.data
+        })
+    
+    def update(self, request, *args, **kwargs):
+        """更新课程（统一响应格式）"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response({
+            'code': 200,
+            'message': '更新成功',
+            'data': serializer.data
+        })
+    
+    def destroy(self, request, *args, **kwargs):
+        """删除课程（统一响应格式）"""
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response({
+            'code': 204,
+            'message': '删除成功'
+        }, status=status.HTTP_204_NO_CONTENT)
     
     def perform_create(self, serializer):
         """自动设置created_by"""
@@ -143,7 +285,6 @@ class CourseViewSet(ModelViewSet):
             from apps.common.email_service import EmailService
             EmailService.send_course_enrollment_notification(user, course)
         except Exception as e:
-            # 邮件发送失败不影响主流程
             pass
         
         return Response({
@@ -170,10 +311,8 @@ class TrainingPlanViewSet(ModelViewSet):
     def get_permissions(self):
         """动态权限配置"""
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            # 所有经理和工程师都可以创建
             return [IsAuthenticated(), IsTrainingManager()]
         elif self.action == 'approve':
-            # 所有经理都可以审批
             return [IsAuthenticated(), IsDeptManager()]
         return [IsAuthenticated()]
     
@@ -195,6 +334,69 @@ class TrainingPlanViewSet(ModelViewSet):
         return self.queryset.filter(
             Q(target_users=user) | Q(created_by=user)
         )
+    
+    def list(self, request, *args, **kwargs):
+        """获取计划列表（统一响应格式）"""
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'code': 200,
+            'message': 'Success',
+            'data': {
+                'count': queryset.count(),
+                'results': serializer.data
+            }
+        })
+    
+    def create(self, request, *args, **kwargs):
+        """创建计划（统一响应格式）"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response({
+            'code': 201,
+            'message': '创建成功',
+            'data': serializer.data
+        }, status=status.HTTP_201_CREATED, headers=headers)
+    
+    def retrieve(self, request, *args, **kwargs):
+        """获取计划详情（统一响应格式）"""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response({
+            'code': 200,
+            'message': 'Success',
+            'data': serializer.data
+        })
+    
+    def update(self, request, *args, **kwargs):
+        """更新计划（统一响应格式）"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response({
+            'code': 200,
+            'message': '更新成功',
+            'data': serializer.data
+        })
+    
+    def destroy(self, request, *args, **kwargs):
+        """删除计划（统一响应格式）"""
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response({
+            'code': 204,
+            'message': '删除成功'
+        }, status=status.HTTP_204_NO_CONTENT)
     
     def perform_create(self, serializer):
         """自动设置created_by"""
@@ -230,7 +432,6 @@ class TrainingPlanViewSet(ModelViewSet):
             from apps.common.email_service import EmailService
             EmailService.send_training_plan_approval_notification(plan, is_approved, request.user, comment)
         except Exception as e:
-            # 邮件发送失败不影响主流程
             pass
         
         return Response({
@@ -276,6 +477,69 @@ class TrainingRecordViewSet(ModelViewSet):
         
         # 普通用户只能查看自己的记录
         return self.queryset.filter(user=user)
+    
+    def list(self, request, *args, **kwargs):
+        """获取记录列表（统一响应格式）"""
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'code': 200,
+            'message': 'Success',
+            'data': {
+                'count': queryset.count(),
+                'results': serializer.data
+            }
+        })
+    
+    def create(self, request, *args, **kwargs):
+        """创建记录（统一响应格式）"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response({
+            'code': 201,
+            'message': '创建成功',
+            'data': serializer.data
+        }, status=status.HTTP_201_CREATED, headers=headers)
+    
+    def retrieve(self, request, *args, **kwargs):
+        """获取记录详情（统一响应格式）"""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response({
+            'code': 200,
+            'message': 'Success',
+            'data': serializer.data
+        })
+    
+    def update(self, request, *args, **kwargs):
+        """更新记录（统一响应格式）"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response({
+            'code': 200,
+            'message': '更新成功',
+            'data': serializer.data
+        })
+    
+    def destroy(self, request, *args, **kwargs):
+        """删除记录（统一响应格式）"""
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response({
+            'code': 204,
+            'message': '删除成功'
+        }, status=status.HTTP_204_NO_CONTENT)
     
     @action(detail=True, methods=['post'])
     def evaluate(self, request, pk=None):
